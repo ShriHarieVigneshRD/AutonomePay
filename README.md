@@ -15,8 +15,8 @@
 
 ## 🔗 Quick Links & Demos
 
-- 🌐 **Live Web Application Demo:** [https://autonomepay.vercel.app](https://autonomepay.vercel.app) *(Replace with your deployed Vercel URL)*
-- 🎬 **Video Walkthrough & Architecture Tour:** [Watch YouTube Demo](https://youtube.com/watch?v=your_video_id) *(Replace with your YouTube URL)*
+- 🌐 **Live Web Application Demo:** [https://autonome-pay.vercel.app/](https://autonome-pay.vercel.app/)
+- ⚡ **Live Backend API:** [https://autonomepay.onrender.com](https://autonomepay.onrender.com)
 - 📦 **GitHub Repository:** [https://github.com/ShriHarieVigneshRD/AutonomePay.git](https://github.com/ShriHarieVigneshRD/AutonomePay.git)
 
 ---
@@ -188,7 +188,7 @@ Frontend will be live at: `http://localhost:5173`
 
 ## 🧪 Running the 50-Case Evaluation Benchmark
 
-1. Open the web app at `http://localhost:5173`.
+1. Open the web app at `https://autonome-pay.vercel.app/` or `http://localhost:5173`.
 2. Click on the **`Batch Eval Matrix`** tab in the top navbar.
 3. Click **`[ Run All 50 Evals ▶ ]`**.
 4. The system will execute all 50 synthetic test scenarios, displaying real-time accuracy, latency, guardrail intercept rates, and KPI metrics.
@@ -200,13 +200,13 @@ Frontend will be live at: `http://localhost:5173`
 ### Deploy Backend to Render
 
 1. Connect repo to [Render.com](https://render.com).
-2. Select **Web Service** using the root `render.yaml` configuration.
+2. Select **Web Service** with root directory `backend`.
 3. Add environment variables (`OPENROUTER_API_KEY`, `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`).
 
 ### Deploy Frontend to Vercel
 
 1. Connect `frontend/` directory to [Vercel](https://vercel.com).
-2. Set Environment Variable: `VITE_API_BASE_URL=https://your-render-backend.onrender.com`.
+2. Set Environment Variable: `VITE_API_BASE_URL=https://autonomepay.onrender.com`.
 3. Deploy! SPA routing is pre-configured via `frontend/vercel.json`.
 
 ---
@@ -214,5 +214,3 @@ Frontend will be live at: `http://localhost:5173`
 ## 📄 License
 
 Distributed under the MIT License. See `LICENSE` for details.
-
----
