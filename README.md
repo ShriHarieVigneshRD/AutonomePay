@@ -16,7 +16,6 @@
 ## 🔗 Quick Links & Demos
 
 - 🌐 **Live Web Application Demo:** [https://autonome-pay.vercel.app/](https://autonome-pay.vercel.app/)
-- ⚡ **Live Backend API:** [https://autonomepay.onrender.com](https://autonomepay.onrender.com)
 - 📦 **GitHub Repository:** [https://github.com/ShriHarieVigneshRD/AutonomePay.git](https://github.com/ShriHarieVigneshRD/AutonomePay.git)
 
 ---
