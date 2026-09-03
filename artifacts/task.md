@@ -1,0 +1,35 @@
+# AutonomePay Task Checklist
+
+- [ ] **Phase 1: Environment & Project Setup**
+  - [ ] Create Python virtual environment using `uv venv .venv`
+  - [ ] Create `backend/requirements.txt` and install using `uv pip install`
+  - [ ] Initialize React frontend in `frontend/` with Vite, Tailwind CSS, Framer Motion, Phosphor Icons
+- [ ] **Phase 2: Database & 15 Merchant RAG Policies**
+  - [ ] Implement `backend/app/core/database.py` (Neon DB schema + seed data)
+  - [ ] Create 15 merchant policy Markdown documents in `backend/app/rag/documents/`
+  - [ ] Implement `backend/app/rag/retriever.py` with hybrid `sentence-transformers/all-MiniLM-L6-v2` + BM25 retrieval
+- [ ] **Phase 3: Core Gateway, Guardrails & Razorpay MCP Client**
+  - [ ] Implement `backend/app/core/config.py`
+  - [ ] Implement `backend/app/core/gateway.py` (LiteLLM proxy, OpenRouter free model routing, SHA-256 semantic cache, token limit)
+  - [ ] Implement `backend/app/guardrails/pre_guardrails.py` (Prompt injection / jailbreak intercept)
+  - [ ] Implement `backend/app/guardrails/post_guardrails.py` (Deterministic arithmetic invariant verification)
+  - [ ] Implement `backend/app/mcp/razorpay_mcp_client.py` (Real MCP SDK + Razorpay API tools)
+- [ ] **Phase 4: LangGraph Multi-Agent Engine**
+  - [ ] Implement `backend/app/agents/state.py` (`AutonomeState`)
+  - [ ] Implement Triage, Policy RAG, Settlement Strategist, Customer Proxy agents
+  - [ ] Compile LangGraph StateGraph in `backend/app/agents/__init__.py`
+- [ ] **Phase 5: Evaluation Benchmark, LangSmith Sync & RAG Triad**
+  - [ ] Implement `backend/app/evals/dataset_generator.py` (50 synthetic multi-turn cases)
+  - [ ] Implement `backend/app/evals/sync_langsmith_dataset.py` (LangSmith SDK integration)
+  - [ ] Implement `backend/app/evals/judge.py` (RAG Triad metrics LLM-as-a-Judge)
+  - [ ] Implement `backend/app/evals/simulation_runner.py` (`@traceable` multi-turn harness)
+- [ ] **Phase 6: FastAPI Backend Layer**
+  - [ ] Implement `/api/chat`, `/api/scenarios`, `/api/evals` endpoints
+  - [ ] Implement `backend/app/main.py` with CORS
+- [ ] **Phase 7: High-Agency Frontend (React + Tailwind + Framer Motion)**
+  - [ ] Setup `index.css` design system (Geist/Satoshi typography, Slate/Zinc theme, Emerald accent)
+  - [ ] Build Tab 1 Concierge Sandbox (Scenario Selector, Context Card, Interactive Chat, Live Trace Inspector)
+  - [ ] Build Tab 2 Batch Evaluation Matrix & LangSmith Inspector (KPI bar, Run Evals button, 50-case matrix table, Trace Drawer)
+- [ ] **Phase 8: End-to-End Verification & Testing**
+  - [ ] Verify backend APIs, guardrail rules, RAG retrieval, and MCP link creation
+  - [ ] Build and verify frontend functionality
