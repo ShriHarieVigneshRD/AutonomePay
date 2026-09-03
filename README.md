@@ -216,7 +216,3 @@ Frontend will be live at: `http://localhost:5173`
 Distributed under the MIT License. See `LICENSE` for details.
 
 ---
-
-<p center>
-  Built with ❤️ for the <strong>Razorpay AI Buildathon 2026</strong>
-</p>
