@@ -1,61 +1,105 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Play, CheckCircle, ShieldCheck, CurrencyInr, Lightning, ArrowSquareOut, ClockCounterClockwise } from '@phosphor-icons/react';
+import { Play, Lightning, ArrowSquareOut, ClockCounterClockwise, CheckCircle, Clock } from '@phosphor-icons/react';
 import TraceDrawer from './TraceDrawer';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 
 export default function BatchEvalTab() {
+  const [batches, setBatches] = useState([]);
+  const [selectedBatchId, setSelectedBatchId] = useState(null);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [progress, setProgress] = useState(0);
   const [selectedRow, setSelectedRow] = useState(null);
+  const pollIntervalRef = useRef(null);
 
-  const fetchResults = async () => {
+  // Fetch all run versions
+  const fetchBatches = async (autoSelectFirst = false) => {
     try {
-      const res = await axios.get(`${API_BASE}/api/evals/results`);
-      setData(res.data);
+      const res = await axios.get(`${API_BASE}/api/evals/batches`);
+      const list = res.data || [];
+      setBatches(list);
+
+      if (list.length > 0 && (autoSelectFirst || !selectedBatchId)) {
+        setSelectedBatchId(list[0].batch_id);
+        fetchResultsForBatch(list[0].batch_id);
+      }
     } catch (e) {
-      console.error("Failed to fetch eval results", e);
+      console.error("Failed to fetch evaluation batches", e);
+    }
+  };
+
+  // Fetch specific batch results
+  const fetchResultsForBatch = async (batchId) => {
+    if (!batchId) return;
+    try {
+      const res = await axios.get(`${API_BASE}/api/evals/results?batch_id=${batchId}`);
+      setData(res.data);
+      if (res.data?.batch?.status === 'RUNNING') {
+        setLoading(true);
+      } else {
+        setLoading(false);
+      }
+    } catch (e) {
+      console.error("Failed to fetch batch results", e);
     }
   };
 
   useEffect(() => {
-    fetchResults();
+    fetchBatches(true);
+    return () => {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    };
   }, []);
+
+  const switchBatch = (batchId) => {
+    setSelectedBatchId(batchId);
+    fetchResultsForBatch(batchId);
+  };
 
   const handleRunEvals = async () => {
     setLoading(true);
-    setProgress(10);
-    const interval = setInterval(() => {
-      setProgress((prev) => (prev >= 90 ? 90 : prev + 10));
-    }, 400);
-
     try {
-      await axios.post(`${API_BASE}/api/evals/run`);
-      await fetchResults();
+      const res = await axios.post(`${API_BASE}/api/evals/run`);
+      const newBatchId = res.data.batch_id;
+
+      setSelectedBatchId(newBatchId);
+      await fetchBatches(false);
+      await fetchResultsForBatch(newBatchId);
+
+      // Poll every 2 seconds for live case streaming
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+
+      pollIntervalRef.current = setInterval(async () => {
+        const resResults = await axios.get(`${API_BASE}/api/evals/results?batch_id=${newBatchId}`);
+        setData(resResults.data);
+        await fetchBatches(false);
+
+        if (resResults.data?.batch?.status === 'COMPLETED') {
+          clearInterval(pollIntervalRef.current);
+          setLoading(false);
+        }
+      }, 2000);
     } catch (e) {
-      console.error("Failed to run batch evals", e);
-    } finally {
-      clearInterval(interval);
-      setProgress(100);
-      setTimeout(() => {
-        setLoading(false);
-        setProgress(0);
-      }, 500);
+      console.error("Failed to trigger batch evals", e);
+      setLoading(false);
     }
   };
 
+  const currentBatch = data?.batch || {};
   const kpi = data?.kpi || {
-    total_invoiced: 485000.00,
-    total_recovered: 412500.00,
+    total_invoiced: 0,
+    total_recovered: 0,
     policy_breaches: 0,
-    adversarial_intercepts: 8,
-    rag_faithfulness_pct: 99.2,
+    adversarial_intercepts: 0,
+    rag_faithfulness_pct: 100.0,
     avg_latency_ms: 142.5
   };
 
   const matrix = data?.matrix || [];
+  const completedCount = currentBatch.completed_cases || matrix.length;
+  const totalCount = currentBatch.total_cases || 50;
+  const progressPct = Math.round((completedCount / totalCount) * 100);
 
   return (
     <div className="space-y-6">
@@ -64,14 +108,14 @@ export default function BatchEvalTab() {
         <div className="glass-panel p-4 rounded-2xl border border-slate-800/80">
           <span className="text-slate-400 font-mono text-[10px] uppercase block">Total Invoiced</span>
           <span className="text-lg font-bold text-slate-100 font-mono">
-            INR {kpi.total_invoiced.toLocaleString('en-IN')}
+            INR {kpi.total_invoiced?.toLocaleString('en-IN')}
           </span>
         </div>
 
         <div className="glass-panel p-4 rounded-2xl border border-slate-800/80">
           <span className="text-slate-400 font-mono text-[10px] uppercase block">Total Recovered</span>
           <span className="text-lg font-bold text-emerald-400 font-mono">
-            INR {kpi.total_recovered.toLocaleString('en-IN')}
+            INR {kpi.total_recovered?.toLocaleString('en-IN')}
           </span>
         </div>
 
@@ -104,7 +148,7 @@ export default function BatchEvalTab() {
         </div>
       </div>
 
-      {/* Batch Runner Header */}
+      {/* Batch Runner Header & Version Selector */}
       <div className="glass-panel p-5 rounded-2xl border border-slate-800/80 flex flex-col md:flex-row items-center justify-between gap-4">
         <div>
           <h2 className="text-base font-bold text-slate-100 flex items-center space-x-2">
@@ -116,22 +160,51 @@ export default function BatchEvalTab() {
           </p>
         </div>
 
-        <button
-          onClick={handleRunEvals}
-          disabled={loading}
-          className="bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 px-6 py-3 rounded-xl font-bold text-xs flex items-center space-x-2 transition-all transform active:scale-95 shadow-lg cursor-pointer"
-        >
-          <Play className="w-4 h-4" weight="fill" />
-          <span>{loading ? `Evaluating (${progress}%)...` : 'Run All 50 Evals ▶'}</span>
-        </button>
+        <div className="flex items-center space-x-4">
+          {/* Run Version Selector Dropdown */}
+          <div className="flex items-center space-x-2 bg-slate-950 px-3 py-2 rounded-xl border border-slate-800 text-xs">
+            <ClockCounterClockwise className="w-4 h-4 text-emerald-400" />
+            <span className="text-slate-400 font-mono font-medium">Run Version:</span>
+            <select
+              value={selectedBatchId || ''}
+              onChange={(e) => switchBatch(e.target.value)}
+              className="bg-transparent text-emerald-300 font-mono font-bold focus:outline-none cursor-pointer pr-2"
+            >
+              {batches.map((b) => (
+                <option key={b.batch_id} value={b.batch_id} className="bg-slate-900 text-slate-100">
+                  {b.name} {b.status === 'RUNNING' ? `(Evaluating ${b.completed_cases}/50)` : '(Completed)'}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <button
+            onClick={handleRunEvals}
+            disabled={loading}
+            className="bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 px-6 py-2.5 rounded-xl font-bold text-xs flex items-center space-x-2 transition-all transform active:scale-95 shadow-lg cursor-pointer shrink-0"
+          >
+            <Play className="w-4 h-4" weight="fill" />
+            <span>{loading ? `Evaluating (${completedCount}/50)...` : 'Run New 50 Evals ▶'}</span>
+          </button>
+        </div>
       </div>
 
+      {/* Progress Bar for Active Run */}
       {loading && (
-        <div className="w-[100%] bg-slate-900 rounded-full h-2 overflow-hidden border border-slate-800">
-          <div
-            className="bg-emerald-500 h-full transition-all duration-300 shadow-[0_0_12px_#10b981]"
-            style={{ width: `${progress}%` }}
-          />
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between text-xs font-mono">
+            <span className="text-emerald-400 flex items-center space-x-1.5">
+              <Clock className="w-3.5 h-3.5 animate-spin" />
+              <span>Executing Benchmark Run: Case {completedCount} of {totalCount}...</span>
+            </span>
+            <span className="text-emerald-400 font-bold">{progressPct}%</span>
+          </div>
+          <div className="w-[100%] bg-slate-900 rounded-full h-2 overflow-hidden border border-slate-800">
+            <div
+              className="bg-emerald-500 h-full transition-all duration-500 shadow-[0_0_12px_#10b981]"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
         </div>
       )}
 

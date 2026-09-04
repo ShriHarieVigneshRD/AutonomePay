@@ -55,7 +55,7 @@ Retrieved Policy Context:
 
 INSTRUCTIONS:
 1. PLAN DOWNGRADE VS RENEWAL DISCOUNT:
-   - If customer asks to downgrade or when offering a lower plan tier (e.g. Mobile Plan at INR 149.00), set action="PLAN_DOWNGRADE", proposed_amount=149.00, and discount_pct=0.0 (full price for lower plan tier).
+   - If customer asks to downgrade or accepts a lower plan tier (e.g. Mobile Plan at INR 149.00), set action="PLAN_DOWNGRADE", proposed_amount=149.00, and discount_pct=0.0.
    - If offering a discount on current plan (e.g. INR 20 off Super Plan -> 279.00), set action="PROPOSE_SETTLEMENT".
 
 2. HUMAN ESCALATION CRITERIA:
@@ -76,8 +76,8 @@ INSTRUCTIONS:
    Do NOT use raw Markdown hashtags (# or ##) or ugly raw asterisks (like **Text**) in bullet points. Use clean, plain bullet points (1., 2., 3. or - ) with standard title casing so text renders cleanly in message bubbles.
 
 5. LLM INTENT CONFIRMATION & TOOL CALL CONTROL ("should_generate_link"):
-   - Set "should_generate_link" to true ONLY AFTER the customer confirms, selects an option, accepts an offer, or agrees to pay.
-   - Set "should_generate_link" to false WHEN asking the customer to confirm or present options.
+   - Set "should_generate_link" to true ONLY WHEN the customer explicitly confirms, selects an option, accepts an offer, or agrees to pay.
+   - Set "should_generate_link" to false WHEN the customer is notifying of payment failure, asking questions, exploring options, or when you are asking for confirmation.
 
 Output MUST be valid JSON with structure:
 {{
@@ -98,29 +98,46 @@ Output MUST be valid JSON with structure:
     llm_res = gateway.completion(messages=messages, system_prompt=system_prompt)
     raw_content = llm_res.get("content", "")
 
-    # Clean JSON output if wrapped in markdown code blocks
-    cleaned_json = raw_content
-    if "```json" in raw_content:
-        cleaned_json = raw_content.split("```json")[1].split("```")[0].strip()
-    elif "```" in raw_content:
-        cleaned_json = raw_content.split("```")[1].split("```")[0].strip()
+    # Robust JSON Parsing using regex extraction
+    parsed = None
+    json_match = re.search(r"\{.*\}", raw_content, re.DOTALL)
+    if json_match:
+        try:
+            parsed = json.loads(json_match.group(0))
+        except Exception:
+            pass
 
-    try:
-        parsed = json.loads(cleaned_json)
-    except Exception:
-        disc_val = min(max_discount_pct, 5.0)
-        target_amt = round(original_amount * (1.0 - (disc_val / 100.0)), 2)
+    if not parsed:
+        # Smart Intent Fallback if LLM output wasn't valid JSON
+        lower_msg = last_user_msg.lower()
+
+        if any(w in lower_msg for w in ["downgrade", "mobile plan", "149"]):
+            action = "PLAN_DOWNGRADE"
+            target_amt = 149.00
+            should_gen = any(w in lower_msg for w in ["yes", "confirm", "proceed", "please"])
+            cust_text = "I've noted your request for the Mobile Plan downgrade at INR 149. Would you like me to process this switch?" if not should_gen else "Your downgrade to the Mobile Plan at INR 149 is confirmed."
+        elif any(w in lower_msg for w in ["cancel", "discontinue", "stop"]):
+            action = "GRACEFUL_DISCONTINUATION"
+            target_amt = original_amount
+            should_gen = False
+            cust_text = "Understood. I'll respect your decision and won't proceed with a payment request."
+        else:
+            action = "PROPOSE_SETTLEMENT"
+            target_amt = original_amount
+            should_gen = any(w in lower_msg for w in ["yes", "confirm", "proceed", "pay", "send link"])
+            cust_text = raw_content if raw_content and not raw_content.startswith("{") else f"We can help resolve your subscription payment of INR {original_amount:.2f}. Would you like to check available options or proceed with payment?"
+
         parsed = {
-            "action": "PROPOSE_SETTLEMENT",
-            "reasoning": "Standard policy offer",
-            "should_generate_link": False,
+            "action": action,
+            "reasoning": "Heuristic intent classification",
+            "should_generate_link": should_gen,
             "offer": {
                 "proposed_amount": target_amt,
-                "discount_pct": disc_val,
+                "discount_pct": 0.0,
                 "grace_days": min(3, max_grace_days),
                 "split_amounts": []
             },
-            "message": raw_content if raw_content and not raw_content.startswith("{") else f"Based on policy, we can offer a settlement of INR {target_amt:.2f}. Would you like me to issue the payment link?"
+            "message": cust_text
         }
 
     action = parsed.get("action", "PROPOSE_SETTLEMENT")
@@ -160,13 +177,17 @@ Output MUST be valid JSON with structure:
             final_amount = valid_prices[-1]
             state["proposed_offer"]["proposed_amount"] = final_amount
 
-    # Confirmation Deferral Gate: If text is asking for customer confirmation, defer link creation until customer confirms
+    # Deferral Safety Gate: If text is asking for customer confirmation, defer link creation until confirmed
     asking_for_confirmation = any(phrase in cust_message.lower() for phrase in [
         "once you confirm", "shall i", "would you like me to", "confirm so i can",
-        "let me know if you'd like", "before i issue", "please confirm", "shall i proceed"
+        "let me know if you'd like", "before i issue", "please confirm", "shall i proceed", "would you like to proceed"
     ])
 
-    if asking_for_confirmation:
+    # Deferral Safety Gate 2: Initial payment failure notification turn without explicit pay/agreed intent
+    is_initial_turn = len(messages) <= 1 or (len(messages) == 2 and messages[0].get("role") == "user")
+    user_confirmed_pay = any(kw in last_user_msg.lower() for kw in ["confirm", "proceed", "yes", "pay", "accept", "agreed", "send link", "downgrade me"])
+
+    if asking_for_confirmation or (is_initial_turn and not user_confirmed_pay):
         should_generate_link = False
 
     if action == "HUMAN_ESCALATION":

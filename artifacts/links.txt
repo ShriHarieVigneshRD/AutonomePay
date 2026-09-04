@@ -1,0 +1,2 @@
+backend = https://autonomepay.onrender.com
+frontend = https://autonome-pay.vercel.app

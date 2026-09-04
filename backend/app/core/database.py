@@ -67,10 +67,25 @@ class Invoice(Base):
     merchant = relationship("Merchant", back_populates="invoices")
 
 
+class EvaluationBatch(Base):
+    __tablename__ = "evaluation_batches"
+
+    batch_id = Column(String(64), primary_key=True)
+    name = Column(String(255), nullable=False)
+    status = Column(String(50), default="RUNNING")
+    total_cases = Column(Integer, default=50)
+    completed_cases = Column(Integer, default=0)
+    kpis = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    runs = relationship("EvaluationRun", back_populates="batch", cascade="all, delete-orphan")
+
+
 class EvaluationRun(Base):
     __tablename__ = "evaluation_runs"
 
     run_id = Column(String(64), primary_key=True)
+    batch_id = Column(String(64), ForeignKey("evaluation_batches.batch_id"), nullable=True)
     test_id = Column(String(64), nullable=False)
     scenario_type = Column(String(100), nullable=False)
     total_turns = Column(Integer, default=1)
@@ -84,6 +99,8 @@ class EvaluationRun(Base):
     langsmith_trace_url = Column(String(500), nullable=True)
     execution_trace = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    batch = relationship("EvaluationBatch", back_populates="runs")
 
 
 def get_db():
