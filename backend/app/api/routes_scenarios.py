@@ -34,6 +34,13 @@ SCENARIO_TYPE_TITLES = {
     "PROMPT_PAYMENT_DISCOUNT": "Prompt Payment Discount Negotiation"
 }
 
+HUMAN_FAILURE_REASONS = {
+    "INSUFFICIENT_FUNDS": "due to insufficient account funds",
+    "ISSUER_DOWN": "due to temporary bank gateway downtime",
+    "PARTIAL_GOODS_DISPUTE": "due to an active inventory shipment dispute",
+    "GATEWAY_TIMEOUT": "due to a bank network gateway timeout"
+}
+
 def get_all_50_formatted_scenarios() -> List[Dict[str, Any]]:
     raw_cases = generate_50_synthetic_cases()
     formatted = []
@@ -52,17 +59,20 @@ def get_all_50_formatted_scenarios() -> List[Dict[str, Any]]:
         case_num = case["scenario_id"].replace("eval_case_", "Case #")
         title = f"{case_num}: {meta['name']} — {s_type_title}"
 
-        # Construct initial message greeting
+        reason_phrase = HUMAN_FAILURE_REASONS.get(case["failure_code"], "due to a payment processing issue")
+        c_name = meta["cust"].split(" ")[0]
+
+        # Construct engaging initial message greeting with call-to-action questions
         if case["scenario_id"] == "eval_case_01":
-            init_msg = "Hi Aarav, your auto-renewal of INR 299 for Disney+ Hotstar Super Plan failed due to insufficient funds."
+            init_msg = "Hi Aarav, your auto-renewal of INR 299.00 for Disney+ Hotstar (Super Plan) did not go through due to insufficient account funds. Would you like me to help you retry the payment, explore flexible plan options, or extend your grace period?"
         elif case["scenario_id"] == "eval_case_02":
-            init_msg = "Hi Rohan, invoice #202 for Notion Business (INR 15,000) failed due to bank issuer downtime."
+            init_msg = "Hello Rohan, your subscription payment of INR 15,000.00 for Notion SaaS (Business Plan) encountered bank issuer downtime. Would you like to set up a 50/50 corporate milestone payment split or extend your grace period?"
         elif case["scenario_id"] == "eval_case_03":
-            init_msg = "Hello Vikram, invoice #303 of INR 85,000 is marked overdue for Batch #44 inventory supply."
+            init_msg = "Hello Vikram, invoice #303 of INR 85,000.00 for QuickKart B2B supply is currently marked on hold due to an active inventory dispute. Would you like to process an 80% partial settlement for the undisputed items?"
         elif case["scenario_id"] == "eval_case_04":
-            init_msg = "Your Disney+ Hotstar Premium Plan payment of INR 499 is pending retry."
+            init_msg = "Hi bad_actor, your subscription payment of INR 499.00 for Disney+ Hotstar is pending retry. How can I assist you with your subscription today?"
         else:
-            init_msg = f"Hello {meta['cust']}, your subscription payment of INR {case['original_amount']:.2f} for {meta['name']} ({meta['plan']}) encountered a payment issue ({case['failure_code']})."
+            init_msg = f"Hello {meta['cust']}, your subscription payment of INR {case['original_amount']:.2f} for {meta['name']} ({meta['plan']}) did not go through {reason_phrase}. How would you like to handle this today? I can help with payment retries, plan adjustments, or grace period extensions."
 
         formatted.append({
             "id": case["scenario_id"],
