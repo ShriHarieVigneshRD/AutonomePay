@@ -21,7 +21,9 @@ export default function LiveTraceInspector({ traceData, scenario }) {
   const isAdversarial = traceData.guardrail_status === 'ADVERSARIAL_INTERCEPTED';
   const isCorrected = traceData.guardrail_status === 'POLICY_BREACH_CORRECTED';
 
-  const maxDisc = scenario?.max_discount_pct ?? 5.0;
+  const maxDiscInrDisplay = scenario?.max_discount_inr !== undefined
+    ? `INR ${scenario.max_discount_inr.toFixed(2)}`
+    : 'INR 20.00';
   const maxGrace = scenario?.max_grace_days ?? 7;
 
   return (
@@ -109,7 +111,7 @@ export default function LiveTraceInspector({ traceData, scenario }) {
                     <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" weight="fill" />
                     <div>
                       <span className="font-semibold text-slate-200 block">Discount Ceiling Invariant</span>
-                      <span className="text-slate-400 text-[9px]">Passed (discount_pct ≤ merchant limit {maxDisc}%)</span>
+                      <span className="text-slate-400 text-[9px]">Passed (discount_inr ≤ merchant limit {maxDiscInrDisplay})</span>
                     </div>
                   </div>
 

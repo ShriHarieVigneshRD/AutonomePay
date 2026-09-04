@@ -39,7 +39,7 @@ def settlement_node(state: AutonomeState) -> AutonomeState:
     # Fetch Merchant constraints from Database
     db = SessionLocal()
     merchant = db.query(Merchant).filter(Merchant.merchant_id == merchant_id).first()
-    max_discount_pct = float(merchant.max_discount_pct) if merchant else 5.00
+    max_discount_inr = float(merchant.max_discount_inr) if (merchant and merchant.max_discount_inr is not None) else 20.00
     max_grace_days = int(merchant.max_grace_days) if merchant else 7
     db.close()
 
@@ -49,14 +49,14 @@ def settlement_node(state: AutonomeState) -> AutonomeState:
     system_prompt = f"""You are AutonomePay, an autonomous revenue recovery concierge for merchant '{merchant_id}'.
 Original Invoice Amount: INR {original_amount:.2f}
 Customer Intent: {intent}
-Merchant Policy Constraints: Max Discount = {max_discount_pct}%, Max Grace Days = {max_grace_days}.
+Merchant Policy Constraints: Max Discount Limit = INR {max_discount_inr:.2f}, Max Grace Days = {max_grace_days}.
 Retrieved Policy Context:
 {combined_policy}
 
 INSTRUCTIONS:
 1. PLAN DOWNGRADE VS RENEWAL DISCOUNT:
-   - If customer asks to downgrade or accepts a lower plan tier (e.g. Mobile Plan at INR 149.00), set action="PLAN_DOWNGRADE", proposed_amount=149.00, and discount_pct=0.0.
-   - If offering a discount on current plan (e.g. INR 20 off Super Plan -> 279.00), set action="PROPOSE_SETTLEMENT".
+   - If customer asks to downgrade or accepts a lower plan tier (e.g. Mobile Plan at INR 149.00), set action="PLAN_DOWNGRADE", proposed_amount=149.00, and discount_inr=0.0.
+   - If offering a renewal discount on current plan (e.g. INR 20 off Super Plan -> 279.00), set action="PROPOSE_SETTLEMENT" and proposed_amount = {original_amount - max_discount_inr:.2f}.
 
 2. HUMAN ESCALATION CRITERIA:
    Set action="HUMAN_ESCALATION" and should_generate_link=false if ANY of the following occur:
@@ -85,8 +85,8 @@ Output MUST be valid JSON with structure:
   "reasoning": "explanation citing relevant rule",
   "should_generate_link": false,
   "offer": {{
-    "proposed_amount": 149.00,
-    "discount_pct": 0.0,
+    "proposed_amount": 279.00,
+    "discount_inr": {max_discount_inr:.2f},
     "grace_days": 0,
     "split_amounts": []
   }},
@@ -108,7 +108,6 @@ Output MUST be valid JSON with structure:
             pass
 
     if not parsed:
-        # Smart Intent Fallback if LLM output wasn't valid JSON
         lower_msg = last_user_msg.lower()
 
         if any(w in lower_msg for w in ["downgrade", "mobile plan", "149"]):
@@ -123,9 +122,9 @@ Output MUST be valid JSON with structure:
             cust_text = "Understood. I'll respect your decision and won't proceed with a payment request."
         else:
             action = "PROPOSE_SETTLEMENT"
-            target_amt = original_amount
+            target_amt = max(0.0, round(original_amount - max_discount_inr, 2))
             should_gen = any(w in lower_msg for w in ["yes", "confirm", "proceed", "pay", "send link"])
-            cust_text = raw_content if raw_content and not raw_content.startswith("{") else f"We can help resolve your subscription payment of INR {original_amount:.2f}. Would you like to check available options or proceed with payment?"
+            cust_text = raw_content if raw_content and not raw_content.startswith("{") else f"We can help resolve your subscription payment. Based on our policy, we can offer a settlement of INR {target_amt:.2f}. Would you like to proceed?"
 
         parsed = {
             "action": action,
@@ -133,7 +132,7 @@ Output MUST be valid JSON with structure:
             "should_generate_link": should_gen,
             "offer": {
                 "proposed_amount": target_amt,
-                "discount_pct": 0.0,
+                "discount_inr": max_discount_inr,
                 "grace_days": min(3, max_grace_days),
                 "split_amounts": []
             },
@@ -150,7 +149,7 @@ Output MUST be valid JSON with structure:
     # 4. Post-LLM Invariant Guardrail Verification
     post_check = run_post_llm_guardrail(
         offer_data=offer,
-        max_discount_pct=max_discount_pct,
+        max_discount_inr=max_discount_inr,
         max_grace_days=max_grace_days,
         action=action
     )

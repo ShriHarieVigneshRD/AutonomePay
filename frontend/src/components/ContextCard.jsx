@@ -4,6 +4,10 @@ import { Storefront, User, Receipt, ShieldCheck } from '@phosphor-icons/react';
 export default function ContextCard({ scenario }) {
   if (!scenario) return null;
 
+  const maxDiscountDisplay = scenario.max_discount_inr !== undefined
+    ? `INR ${scenario.max_discount_inr.toFixed(2)}`
+    : (scenario.max_discount_pct ? `INR ${(scenario.original_amount * (scenario.max_discount_pct / 100)).toFixed(2)}` : 'INR 20.00');
+
   return (
     <div className="glass-panel rounded-2xl p-4 flex flex-col h-full border border-slate-800/80 overflow-hidden justify-between">
       <div className="space-y-4 overflow-y-auto pr-1">
@@ -66,7 +70,7 @@ export default function ContextCard({ scenario }) {
         <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
           <div className="bg-slate-900 p-2 rounded border border-slate-800 text-slate-300">
             <span className="text-slate-400 block text-[9px] uppercase">Max Discount</span>
-            <span className="text-emerald-400 font-bold">{scenario.max_discount_pct}%</span>
+            <span className="text-emerald-400 font-bold">{maxDiscountDisplay}</span>
           </div>
           <div className="bg-slate-900 p-2 rounded border border-slate-800 text-slate-300">
             <span className="text-slate-400 block text-[9px] uppercase">Max Grace</span>

@@ -22,6 +22,7 @@ class Merchant(Base):
     merchant_id = Column(String(64), primary_key=True)
     name = Column(String(255), nullable=False)
     category = Column(String(100), nullable=False)
+    max_discount_inr = Column(Numeric(12, 2), default=20.00)
     max_discount_pct = Column(Numeric(5, 2), default=5.00)
     max_grace_days = Column(Integer, default=7)
     auto_escalation_limit = Column(Numeric(12, 2), default=50000.00)
@@ -118,21 +119,21 @@ def init_db():
     # Check if seed merchants exist
     if db.query(Merchant).count() == 0:
         seed_merchants = [
-            Merchant(merchant_id="hotstar", name="Disney+ Hotstar", category="OTT Entertainment", max_discount_pct=6.69, max_grace_days=3, auto_escalation_limit=5000, policy_doc_slug="01_hotstar_policy.md"),
-            Merchant(merchant_id="netflix_india", name="Netflix India", category="OTT Streaming", max_discount_pct=0.00, max_grace_days=2, auto_escalation_limit=10000, policy_doc_slug="02_netflix_india_policy.md"),
-            Merchant(merchant_id="amazon_prime", name="Amazon Prime India", category="E-Commerce & Video", max_discount_pct=5.00, max_grace_days=5, auto_escalation_limit=15000, policy_doc_slug="03_amazon_prime_policy.md"),
-            Merchant(merchant_id="spotify_india", name="Spotify India", category="Audio Streaming", max_discount_pct=0.00, max_grace_days=7, auto_escalation_limit=5000, policy_doc_slug="04_spotify_india_policy.md"),
-            Merchant(merchant_id="airtel_postpaid", name="Airtel Postpaid", category="Telecom", max_discount_pct=10.00, max_grace_days=3, auto_escalation_limit=20000, policy_doc_slug="05_airtel_postpaid_policy.md"),
-            Merchant(merchant_id="jio_fiber", name="JioFiber", category="Broadband Internet", max_discount_pct=0.00, max_grace_days=3, auto_escalation_limit=15000, policy_doc_slug="06_jio_fiber_policy.md"),
-            Merchant(merchant_id="swiggy_one", name="Swiggy One", category="Food & Delivery", max_discount_pct=10.00, max_grace_days=2, auto_escalation_limit=5000, policy_doc_slug="07_swiggy_one_policy.md"),
-            Merchant(merchant_id="zomato_gold", name="Zomato Gold", category="Dining & Delivery", max_discount_pct=5.00, max_grace_days=1, auto_escalation_limit=5000, policy_doc_slug="08_zomato_gold_policy.md"),
-            Merchant(merchant_id="notion_saas", name="Notion SaaS", category="B2B Productivity", max_discount_pct=0.00, max_grace_days=7, auto_escalation_limit=100000, policy_doc_slug="09_notion_saas_policy.md"),
-            Merchant(merchant_id="slack_workspace", name="Slack Workspace", category="B2B Collaboration", max_discount_pct=3.00, max_grace_days=5, auto_escalation_limit=50000, policy_doc_slug="10_slack_workspace_policy.md"),
-            Merchant(merchant_id="zoho_one", name="Zoho One", category="B2B SaaS Suite", max_discount_pct=3.00, max_grace_days=10, auto_escalation_limit=150000, policy_doc_slug="11_zoho_one_policy.md"),
-            Merchant(merchant_id="jira_atlassian", name="Jira Atlassian", category="Developer Tools", max_discount_pct=0.00, max_grace_days=14, auto_escalation_limit=200000, policy_doc_slug="12_jira_atlassian_policy.md"),
-            Merchant(merchant_id="quickkart_b2b", name="QuickKart B2B", category="Wholesale Supply", max_discount_pct=3.00, max_grace_days=7, auto_escalation_limit=500000, policy_doc_slug="13_quickkart_b2b_policy.md"),
-            Merchant(merchant_id="udaan_wholesale", name="Udaan Wholesale", category="B2B Logistics", max_discount_pct=2.00, max_grace_days=5, auto_escalation_limit=1000000, policy_doc_slug="14_udaan_wholesale_policy.md"),
-            Merchant(merchant_id="razorpayx_payroll", name="RazorpayX Payroll", category="Fintech & Payroll", max_discount_pct=0.00, max_grace_days=5, auto_escalation_limit=2000000, policy_doc_slug="15_razorpayx_payroll_policy.md"),
+            Merchant(merchant_id="hotstar", name="Disney+ Hotstar", category="OTT Entertainment", max_discount_inr=20.00, max_discount_pct=6.69, max_grace_days=3, auto_escalation_limit=5000, policy_doc_slug="01_hotstar_policy.md"),
+            Merchant(merchant_id="netflix_india", name="Netflix India", category="OTT Streaming", max_discount_inr=0.00, max_discount_pct=0.00, max_grace_days=2, auto_escalation_limit=10000, policy_doc_slug="02_netflix_india_policy.md"),
+            Merchant(merchant_id="amazon_prime", name="Amazon Prime India", category="E-Commerce & Video", max_discount_inr=75.00, max_discount_pct=5.00, max_grace_days=5, auto_escalation_limit=15000, policy_doc_slug="03_amazon_prime_policy.md"),
+            Merchant(merchant_id="spotify_india", name="Spotify India", category="Audio Streaming", max_discount_inr=15.00, max_discount_pct=0.00, max_grace_days=7, auto_escalation_limit=5000, policy_doc_slug="04_spotify_india_policy.md"),
+            Merchant(merchant_id="airtel_postpaid", name="Airtel Postpaid", category="Telecom", max_discount_inr=100.00, max_discount_pct=10.00, max_grace_days=3, auto_escalation_limit=20000, policy_doc_slug="05_airtel_postpaid_policy.md"),
+            Merchant(merchant_id="jio_fiber", name="JioFiber", category="Broadband Internet", max_discount_inr=0.00, max_discount_pct=0.00, max_grace_days=3, auto_escalation_limit=15000, policy_doc_slug="06_jio_fiber_policy.md"),
+            Merchant(merchant_id="swiggy_one", name="Swiggy One", category="Food & Delivery", max_discount_inr=30.00, max_discount_pct=10.00, max_grace_days=2, auto_escalation_limit=5000, policy_doc_slug="07_swiggy_one_policy.md"),
+            Merchant(merchant_id="zomato_gold", name="Zomato Gold", category="Dining & Delivery", max_discount_inr=25.00, max_discount_pct=5.00, max_grace_days=1, auto_escalation_limit=5000, policy_doc_slug="08_zomato_gold_policy.md"),
+            Merchant(merchant_id="notion_saas", name="Notion SaaS", category="B2B Productivity", max_discount_inr=0.00, max_discount_pct=0.00, max_grace_days=7, auto_escalation_limit=100000, policy_doc_slug="09_notion_saas_policy.md"),
+            Merchant(merchant_id="slack_workspace", name="Slack Workspace", category="B2B Collaboration", max_discount_inr=255.00, max_discount_pct=3.00, max_grace_days=5, auto_escalation_limit=50000, policy_doc_slug="10_slack_workspace_policy.md"),
+            Merchant(merchant_id="zoho_one", name="Zoho One", category="B2B SaaS Suite", max_discount_inr=500.00, max_discount_pct=3.00, max_grace_days=10, auto_escalation_limit=150000, policy_doc_slug="11_zoho_one_policy.md"),
+            Merchant(merchant_id="jira_atlassian", name="Jira Atlassian", category="Developer Tools", max_discount_inr=0.00, max_discount_pct=0.00, max_grace_days=14, auto_escalation_limit=200000, policy_doc_slug="12_jira_atlassian_policy.md"),
+            Merchant(merchant_id="quickkart_b2b", name="QuickKart B2B", category="Wholesale Supply", max_discount_inr=2550.00, max_discount_pct=3.00, max_grace_days=7, auto_escalation_limit=500000, policy_doc_slug="13_quickkart_b2b_policy.md"),
+            Merchant(merchant_id="udaan_wholesale", name="Udaan Wholesale", category="B2B Logistics", max_discount_inr=2000.00, max_discount_pct=2.00, max_grace_days=5, auto_escalation_limit=1000000, policy_doc_slug="14_udaan_wholesale_policy.md"),
+            Merchant(merchant_id="razorpayx_payroll", name="RazorpayX Payroll", category="Fintech & Payroll", max_discount_inr=0.00, max_discount_pct=0.00, max_grace_days=5, auto_escalation_limit=2000000, policy_doc_slug="15_razorpayx_payroll_policy.md"),
         ]
         db.add_all(seed_merchants)
         db.commit()

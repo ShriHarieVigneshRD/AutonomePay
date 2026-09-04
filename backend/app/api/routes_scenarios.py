@@ -5,21 +5,21 @@ from app.evals.dataset_generator import generate_50_synthetic_cases
 router = APIRouter()
 
 MERCHANT_METADATA = {
-    "hotstar": {"name": "Disney+ Hotstar", "category": "OTT Entertainment", "plan": "Super Plan", "discount": 6.69, "grace": 3, "cust": "Aarav Sharma"},
-    "netflix_india": {"name": "Netflix India", "category": "OTT Entertainment", "plan": "Premium 4K", "discount": 0.00, "grace": 2, "cust": "Neha Kapoor"},
-    "amazon_prime": {"name": "Amazon Prime", "category": "E-Commerce & OTT", "plan": "Annual Prime", "discount": 5.00, "grace": 5, "cust": "Rahul Verma"},
-    "spotify_india": {"name": "Spotify India", "category": "Music Streaming", "plan": "Duo Plan", "discount": 10.00, "grace": 3, "cust": "Ananya Roy"},
-    "airtel_postpaid": {"name": "Airtel Postpaid", "category": "Telecom", "plan": "Family Plan 999", "discount": 5.00, "grace": 7, "cust": "Rajesh Kumar"},
-    "jio_fiber": {"name": "JioFiber Broadband", "category": "Telecom & Broadband", "plan": "Fiber 100Mbps", "discount": 0.00, "grace": 5, "cust": "Siddharth Malhotra"},
-    "swiggy_one": {"name": "Swiggy One", "category": "Food & Grocery", "plan": "Annual Membership", "discount": 5.00, "grace": 3, "cust": "Kavya Iyer"},
-    "zomato_gold": {"name": "Zomato Gold", "category": "Food & Dining", "plan": "3-Month Edition", "discount": 8.00, "grace": 3, "cust": "Rohan Gupta"},
-    "notion_saas": {"name": "Notion SaaS", "category": "B2B Productivity", "plan": "Business Plan (10 seats)", "discount": 0.00, "grace": 7, "cust": "Rohan Mehta (TechNova)"},
-    "slack_workspace": {"name": "Slack Workspace", "category": "B2B Communication", "plan": "Pro Tier (25 users)", "discount": 10.00, "grace": 7, "cust": "Devendra Shah"},
-    "zoho_one": {"name": "Zoho One", "category": "B2B Business Suite", "plan": "All-in-One Enterprise", "discount": 5.00, "grace": 10, "cust": "Sunil Bansal"},
-    "jira_atlassian": {"name": "Jira Atlassian", "category": "B2B Software Dev", "plan": "Cloud Premium", "discount": 0.00, "grace": 7, "cust": "Tanya Saxena"},
-    "quickkart_b2b": {"name": "QuickKart B2B", "category": "Wholesale Supply", "plan": "Inventory Batch #44", "discount": 3.00, "grace": 7, "cust": "Vikram Enterprises"},
-    "udaan_wholesale": {"name": "Udaan Wholesale", "category": "B2B E-Commerce", "plan": "Bulk Traders License", "discount": 2.00, "grace": 14, "cust": "Mahavir Stores"},
-    "razorpayx_payroll": {"name": "RazorpayX Payroll", "category": "Fintech & Payroll", "plan": "Automated Payroll Pro", "discount": 0.00, "grace": 5, "cust": "Apex Global Solutions"}
+    "hotstar": {"name": "Disney+ Hotstar", "category": "OTT Entertainment", "plan": "Super Plan", "discount_inr": 20.00, "discount_pct": 6.69, "grace": 3, "cust": "Aarav Sharma"},
+    "netflix_india": {"name": "Netflix India", "category": "OTT Entertainment", "plan": "Premium 4K", "discount_inr": 0.00, "discount_pct": 0.00, "grace": 2, "cust": "Neha Kapoor"},
+    "amazon_prime": {"name": "Amazon Prime", "category": "E-Commerce & OTT", "plan": "Annual Prime", "discount_inr": 75.00, "discount_pct": 5.00, "grace": 5, "cust": "Rahul Verma"},
+    "spotify_india": {"name": "Spotify India", "category": "Music Streaming", "plan": "Duo Plan", "discount_inr": 15.00, "discount_pct": 10.00, "grace": 3, "cust": "Ananya Roy"},
+    "airtel_postpaid": {"name": "Airtel Postpaid", "category": "Telecom", "plan": "Family Plan 999", "discount_inr": 100.00, "discount_pct": 10.00, "grace": 7, "cust": "Rajesh Kumar"},
+    "jio_fiber": {"name": "JioFiber Broadband", "category": "Telecom & Broadband", "plan": "Fiber 100Mbps", "discount_inr": 0.00, "discount_pct": 0.00, "grace": 5, "cust": "Siddharth Malhotra"},
+    "swiggy_one": {"name": "Swiggy One", "category": "Food & Grocery", "plan": "Annual Membership", "discount_inr": 30.00, "discount_pct": 5.00, "grace": 3, "cust": "Kavya Iyer"},
+    "zomato_gold": {"name": "Zomato Gold", "category": "Food & Dining", "plan": "3-Month Edition", "discount_inr": 25.00, "discount_pct": 8.00, "grace": 3, "cust": "Rohan Gupta"},
+    "notion_saas": {"name": "Notion SaaS", "category": "B2B Productivity", "plan": "Business Plan (10 seats)", "discount_inr": 0.00, "discount_pct": 0.00, "grace": 7, "cust": "Rohan Mehta (TechNova)"},
+    "slack_workspace": {"name": "Slack Workspace", "category": "B2B Communication", "plan": "Pro Tier (25 users)", "discount_inr": 255.00, "discount_pct": 10.00, "grace": 7, "cust": "Devendra Shah"},
+    "zoho_one": {"name": "Zoho One", "category": "B2B Business Suite", "plan": "All-in-One Enterprise", "discount_inr": 500.00, "discount_pct": 5.00, "grace": 10, "cust": "Sunil Bansal"},
+    "jira_atlassian": {"name": "Jira Atlassian", "category": "B2B Software Dev", "plan": "Cloud Premium", "discount_inr": 0.00, "discount_pct": 0.00, "grace": 7, "cust": "Tanya Saxena"},
+    "quickkart_b2b": {"name": "QuickKart B2B", "category": "Wholesale Supply", "plan": "Inventory Batch #44", "discount_inr": 2550.00, "discount_pct": 3.00, "grace": 7, "cust": "Vikram Enterprises"},
+    "udaan_wholesale": {"name": "Udaan Wholesale", "category": "B2B E-Commerce", "plan": "Bulk Traders License", "discount_inr": 2000.00, "discount_pct": 2.00, "grace": 14, "cust": "Mahavir Stores"},
+    "razorpayx_payroll": {"name": "RazorpayX Payroll", "category": "Fintech & Payroll", "plan": "Automated Payroll Pro", "discount_inr": 0.00, "discount_pct": 0.00, "grace": 5, "cust": "Apex Global Solutions"}
 }
 
 SCENARIO_TYPE_TITLES = {
@@ -51,7 +51,8 @@ def get_all_50_formatted_scenarios() -> List[Dict[str, Any]]:
             "name": m_id.replace("_", " ").title(),
             "category": "Enterprise Subscription",
             "plan": "Standard Plan",
-            "discount": 5.0,
+            "discount_inr": 20.0,
+            "discount_pct": 5.0,
             "grace": 7,
             "cust": f"Customer #{case['customer_id']}"
         })
@@ -60,7 +61,6 @@ def get_all_50_formatted_scenarios() -> List[Dict[str, Any]]:
         title = f"{case_num}: {meta['name']} — {s_type_title}"
 
         reason_phrase = HUMAN_FAILURE_REASONS.get(case["failure_code"], "due to a payment processing issue")
-        c_name = meta["cust"].split(" ")[0]
 
         # Construct engaging initial message greeting with call-to-action questions
         if case["scenario_id"] == "eval_case_01":
@@ -88,7 +88,8 @@ def get_all_50_formatted_scenarios() -> List[Dict[str, Any]]:
             "failure_code": case["failure_code"],
             "scenario_type": case["scenario_type"],
             "scenario_type_title": s_type_title,
-            "max_discount_pct": meta["discount"],
+            "max_discount_inr": meta["discount_inr"],
+            "max_discount_pct": meta["discount_pct"],
             "max_grace_days": meta["grace"],
             "is_multi_turn": case["is_multi_turn"],
             "initial_message": init_msg
