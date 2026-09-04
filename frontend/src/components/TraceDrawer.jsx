@@ -1,8 +1,12 @@
 import React from 'react';
-import { X, ArrowSquareOut, Lightning, ShieldCheck, CheckCircle } from '@phosphor-icons/react';
+import { X, ArrowSquareOut, Lightning, Sparkle, CheckCircle } from '@phosphor-icons/react';
 
 export default function TraceDrawer({ isOpen, onClose, rowData }) {
   if (!isOpen || !rowData) return null;
+
+  // Extract initial message if available
+  const initialGreeting = rowData.initial_message || rowData.execution_trace?.[0]?.initial_message ||
+    `Hello, your subscription payment for ${rowData.scenario_type || 'service'} encountered a payment processing issue. How would you like to handle this today? I can help with payment retries, plan adjustments, or grace period extensions.`;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/80 backdrop-blur-sm transition-opacity">
@@ -61,9 +65,20 @@ export default function TraceDrawer({ isOpen, onClose, rowData }) {
           </div>
         </div>
 
+        {/* Initial Concierge Outreach Greeting & Call-To-Action Question */}
+        <div className="bg-emerald-950/40 rounded-xl p-4 border border-emerald-800/60 space-y-2 text-xs">
+          <div className="flex items-center space-x-2 text-emerald-400 font-mono text-[11px] font-bold uppercase tracking-wider">
+            <Sparkle className="w-4 h-4 text-emerald-400 animate-pulse" weight="fill" />
+            <span>Initial Outreach Greeting & Call-To-Action Question</span>
+          </div>
+          <p className="text-slate-200 leading-relaxed font-sans bg-slate-900/80 p-3 rounded-lg border border-slate-800 italic">
+            "{initialGreeting}"
+          </p>
+        </div>
+
         {/* Multi-turn Execution Trace Log */}
         <div className="space-y-4">
-          <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Multi-Turn Step Execution</h3>
+          <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Multi-Turn Step Execution Trajectory</h3>
           <div className="space-y-3">
             {rowData.execution_trace?.map((step, idx) => (
               <div key={idx} className="bg-slate-900/80 rounded-xl p-4 border border-slate-800 space-y-2 text-xs">

@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db, EvaluationBatch, EvaluationRun, SessionLocal
 from app.evals.simulation_runner import execute_batch_evaluation_job, run_all_50_evaluations
 from app.evals.sync_langsmith_dataset import sync_dataset_to_langsmith
+from app.api.routes_scenarios import get_all_50_formatted_scenarios
 
 router = APIRouter()
 
@@ -112,8 +113,11 @@ def get_eval_results(batch_id: Optional[str] = Query(None), db: Session = Depend
         sum(float(r.rag_faithfulness or 1.0) for r in runs) / len(runs)
     ) * 100.0 if runs else 98.5
 
+    scenario_map = {s["id"]: s["initial_message"] for s in get_all_50_formatted_scenarios()}
+
     matrix = []
     for r in runs:
+        init_greeting = scenario_map.get(r.test_id, "")
         matrix.append({
             "run_id": r.run_id,
             "test_id": r.test_id,
@@ -124,6 +128,7 @@ def get_eval_results(batch_id: Optional[str] = Query(None), db: Session = Depend
             "rag_faithfulness": float(r.rag_faithfulness or 1.0),
             "recovered_inr": float(r.amount_recovered or 0.0),
             "langsmith_trace_url": r.langsmith_trace_url,
+            "initial_message": init_greeting,
             "execution_trace": r.execution_trace
         })
 
