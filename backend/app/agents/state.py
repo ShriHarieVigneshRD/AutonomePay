@@ -1,6 +1,7 @@
 from typing import TypedDict, List, Dict, Any, Optional
 
 class AutonomeState(TypedDict):
+    session_id: Optional[str]
     messages: List[Dict[str, str]]
     merchant_id: str
     merchant_name: str

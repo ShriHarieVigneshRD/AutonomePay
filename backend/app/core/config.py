@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     RAZORPAY_KEY_SECRET: str = os.getenv("RAZORPAY_KEY_SECRET", "mock_secret_67890")
     
     # Token Budget Limits
-    MAX_SESSION_TOKEN_BUDGET: int = 4000
+    MAX_SESSION_TOKEN_BUDGET: int = int(os.getenv("MAX_SESSION_TOKEN_BUDGET", "6000"))
 
     class Config:
         env_file = ".env"

@@ -36,7 +36,9 @@ def run_single_simulation_case(case: Dict[str, Any], batch_id: Optional[str] = N
     for turn_idx, user_turn in enumerate(dialogue, start=1):
         messages.append({"role": "user", "content": user_turn})
         
+        case_session_id = f"eval_{batch_id or 'batch'}_{scenario_id}_{uuid.uuid4().hex[:6]}"
         initial_state = {
+            "session_id": case_session_id,
             "messages": list(messages),
             "merchant_id": merchant_id,
             "merchant_name": merchant_id.replace("_", " ").title(),

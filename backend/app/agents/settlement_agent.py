@@ -95,7 +95,8 @@ Output MUST be valid JSON with structure:
 """
 
     # 3. Call LiteLLM Gateway
-    llm_res = gateway.completion(messages=messages, system_prompt=system_prompt)
+    session_id = state.get("session_id") or f"sess_{merchant_id}_{uuid.uuid4().hex[:6]}"
+    llm_res = gateway.completion(messages=messages, system_prompt=system_prompt, session_id=session_id)
     raw_content = llm_res.get("content", "")
 
     # Robust JSON Parsing using regex extraction

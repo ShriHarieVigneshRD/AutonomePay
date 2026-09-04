@@ -36,6 +36,7 @@ def handle_chat_turn(payload: ChatRequest, db: Session = Depends(get_db)):
     failure_code = invoice.failure_code if invoice else "INSUFFICIENT_FUNDS"
 
     initial_state = {
+        "session_id": f"chat_{payload.customer_id}_{payload.invoice_id}",
         "messages": payload.messages,
         "merchant_id": payload.merchant_id,
         "merchant_name": merchant_name,
