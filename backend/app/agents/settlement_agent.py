@@ -43,10 +43,11 @@ def settlement_node(state: AutonomeState) -> AutonomeState:
     max_grace_days = int(merchant.max_grace_days) if merchant else 7
     db.close()
 
+    merchant_name = state.get("merchant_name") or (merchant.name if merchant else merchant_id.replace("_", " ").title())
     combined_policy = "\n".join(policy_chunks)
 
     # 2. Construct Prompt with Human Escalation, Discontinuation, Downgrade & Intent Rules
-    system_prompt = f"""You are AutonomePay, an autonomous revenue recovery concierge for merchant '{merchant_id}'.
+    system_prompt = f"""You are AutonomePay, an autonomous revenue recovery concierge representing merchant '{merchant_name}'.
 Original Invoice Amount: INR {original_amount:.2f}
 Customer Intent: {intent}
 Merchant Policy Constraints: Max Discount Limit = INR {max_discount_inr:.2f}, Max Grace Days = {max_grace_days}.
@@ -174,7 +175,7 @@ Output MUST be valid JSON with structure:
     cust_message = re.sub(r"^\s*#{1,6}\s+", "", cust_message, flags=re.MULTILINE)
     cust_message = re.sub(r"\*\*([^*]+)\*\*", r"\1", cust_message)
 
-    # Price Alignment Guardrail: Ensure button amount matches net price stated in message text
+    # Price Alignment Guardrail: Ensure button amount matches net settlement price stated in message text
     final_amount = corrected_offer["proposed_amount"]
     raw_inr_matches = re.findall(r"INR\s*([\d,]+(?:\.\d+)?)", cust_message, re.IGNORECASE)
     if raw_inr_matches:
@@ -182,13 +183,18 @@ Output MUST be valid JSON with structure:
         for p in raw_inr_matches:
             try:
                 val = float(p.replace(",", ""))
-                if 0 < val <= original_amount:
+                if 0 < val <= original_amount and abs(val - max_discount_inr) > 0.01:
+                    valid_prices.append(val)
+                elif val == original_amount:
                     valid_prices.append(val)
             except ValueError:
                 pass
         if valid_prices:
-            # Pick the lowest valid price mentioned (e.g. INR 7,500.00 for 50/50 split)
-            final_amount = valid_prices[0] if action == "MILESTONE_SPLIT" else valid_prices[-1]
+            if action == "MILESTONE_SPLIT":
+                final_amount = valid_prices[0]
+            else:
+                # Pick valid price closest to guardrail-corrected proposed_amount
+                final_amount = min(valid_prices, key=lambda x: abs(x - corrected_offer["proposed_amount"]))
             state["proposed_offer"]["proposed_amount"] = final_amount
 
     # Deferral Safety Gate: If text is asking for customer confirmation, defer link creation until confirmed
