@@ -55,8 +55,9 @@ Retrieved Policy Context:
 
 INSTRUCTIONS:
 1. PLAN DOWNGRADE VS RENEWAL DISCOUNT:
-   - If customer asks to downgrade or accepts a lower plan tier (e.g. Mobile Plan at INR 149.00), set action="PLAN_DOWNGRADE", proposed_amount=149.00, and discount_inr=0.0.
-   - If offering a renewal discount on current plan (e.g. INR 20 off Super Plan -> 279.00), set action="PROPOSE_SETTLEMENT" and proposed_amount = {original_amount - max_discount_inr:.2f}.
+   - If customer asks to downgrade or select a lighter tier plan, use ONLY plan options present in Retrieved Policy Context or Merchant Policy.
+   - If offering a renewal discount on current plan, set action="PROPOSE_SETTLEMENT" and proposed_amount = {original_amount - max_discount_inr:.2f}.
+   - If offering a milestone split payment (e.g. 50/50 split), set action="MILESTONE_SPLIT" and proposed_amount = {original_amount / 2.0:.2f}.
 
 2. HUMAN ESCALATION CRITERIA:
    Set action="HUMAN_ESCALATION" and should_generate_link=false if ANY of the following occur:
@@ -81,7 +82,7 @@ INSTRUCTIONS:
 
 Output MUST be valid JSON with structure:
 {{
-  "action": "PROPOSE_SETTLEMENT" | "PLAN_DOWNGRADE" | "HUMAN_ESCALATION" | "GRACEFUL_DISCONTINUATION" | "EXTEND_GRACE" | "PAUSE_PLAN",
+  "action": "PROPOSE_SETTLEMENT" | "PLAN_DOWNGRADE" | "HUMAN_ESCALATION" | "GRACEFUL_DISCONTINUATION" | "EXTEND_GRACE" | "MILESTONE_SPLIT",
   "reasoning": "explanation citing relevant rule",
   "should_generate_link": false,
   "offer": {{
@@ -111,11 +112,16 @@ Output MUST be valid JSON with structure:
     if not parsed:
         lower_msg = last_user_msg.lower()
 
-        if any(w in lower_msg for w in ["downgrade", "mobile plan", "149"]):
+        if any(w in lower_msg for w in ["downgrade", "lighter plan", "lower tier"]):
             action = "PLAN_DOWNGRADE"
-            target_amt = 149.00
+            target_amt = max(1.0, round(original_amount * 0.5, 2))
             should_gen = any(w in lower_msg for w in ["yes", "confirm", "proceed", "please"])
-            cust_text = "I've noted your request for the Mobile Plan downgrade at INR 149. Would you like me to process this switch?" if not should_gen else "Your downgrade to the Mobile Plan at INR 149 is confirmed."
+            cust_text = "I've noted your request for a plan downgrade. Would you like me to process this switch?" if not should_gen else "Your plan downgrade is confirmed."
+        elif any(w in lower_msg for w in ["split", "50/50", "installment", "milestone"]):
+            action = "MILESTONE_SPLIT"
+            target_amt = round(original_amount / 2.0, 2)
+            should_gen = any(w in lower_msg for w in ["yes", "confirm", "proceed", "please", "set that up"])
+            cust_text = f"We can set up a 50/50 split milestone payment: INR {target_amt:.2f} today and INR {target_amt:.2f} later. Would you like me to generate the payment link?"
         elif any(w in lower_msg for w in ["cancel", "discontinue", "stop"]):
             action = "GRACEFUL_DISCONTINUATION"
             target_amt = original_amount
@@ -170,11 +176,19 @@ Output MUST be valid JSON with structure:
 
     # Price Alignment Guardrail: Ensure button amount matches net price stated in message text
     final_amount = corrected_offer["proposed_amount"]
-    inr_matches = re.findall(r"INR\s*(\d+(?:\.\d+)?)", cust_message, re.IGNORECASE)
-    if inr_matches:
-        valid_prices = [float(p) for p in inr_matches if float(p) > 0 and float(p) <= original_amount]
+    raw_inr_matches = re.findall(r"INR\s*([\d,]+(?:\.\d+)?)", cust_message, re.IGNORECASE)
+    if raw_inr_matches:
+        valid_prices = []
+        for p in raw_inr_matches:
+            try:
+                val = float(p.replace(",", ""))
+                if 0 < val <= original_amount:
+                    valid_prices.append(val)
+            except ValueError:
+                pass
         if valid_prices:
-            final_amount = valid_prices[-1]
+            # Pick the lowest valid price mentioned (e.g. INR 7,500.00 for 50/50 split)
+            final_amount = valid_prices[0] if action == "MILESTONE_SPLIT" else valid_prices[-1]
             state["proposed_offer"]["proposed_amount"] = final_amount
 
     # Deferral Safety Gate: If text is asking for customer confirmation, defer link creation until confirmed

@@ -6,15 +6,27 @@ MERCHANT_IDS = [
     "zoho_one", "jira_atlassian", "quickkart_b2b", "udaan_wholesale", "razorpayx_payroll"
 ]
 
-SCENARIO_TYPES = [
-    "HOTSTAR_BUDGET_FRICTION", "NOTION_SAAS_SPLIT_PAYMENT", "QUICKKART_DISPUTED_GOODS",
-    "ADVERSARIAL_INJECTION_ATTEMPT", "GATEWAY_TIMEOUT_RETRY", "GRACE_EXTENSION_REQUEST",
-    "SAFE_CUSTODY_PAUSE", "LATE_FEE_WAIVER", "PROMPT_PAYMENT_DISCOUNT"
-]
+MERCHANT_SCENARIO_TYPES = {
+    "hotstar": "HOTSTAR_BUDGET_FRICTION",
+    "netflix_india": "NETFLIX_PLAN_DOWNGRADE",
+    "amazon_prime": "AMAZON_PRIME_PROMPT_DISCOUNT",
+    "spotify_india": "SPOTIFY_DUO_PAUSE",
+    "airtel_postpaid": "AIRTEL_GRACE_EXTENSION",
+    "jio_fiber": "JIO_FIBER_GATEWAY_RETRY",
+    "swiggy_one": "SWIGGY_RENEWAL_CONCESSION",
+    "zomato_gold": "ZOMATO_PAUSE_REQUEST",
+    "notion_saas": "NOTION_SAAS_SPLIT_PAYMENT",
+    "slack_workspace": "SLACK_SEAT_ADJUSTMENT",
+    "zoho_one": "ZOHO_ONE_GATEWAY_TIMEOUT",
+    "jira_atlassian": "JIRA_LICENSE_ADJUSTMENT",
+    "quickkart_b2b": "QUICKKART_DISPUTED_GOODS",
+    "udaan_wholesale": "UDAAN_BULK_DISCOUNT",
+    "razorpayx_payroll": "RAZORPAYX_HUMAN_ESCALATION"
+}
 
 def generate_50_synthetic_cases() -> List[Dict[str, Any]]:
     """
-    Generates 50 evaluation test cases, 80%+ multi-turn.
+    Generates 50 evaluation test cases, 80%+ multi-turn, with 1-to-1 merchant scenario alignment.
     """
     cases = []
     
@@ -32,10 +44,10 @@ def generate_50_synthetic_cases() -> List[Dict[str, Any]]:
         "dialogue_script": [
             "My payment for Super Plan failed.",
             "I can't afford INR 299 right now, money is tight this month.",
-            "Yes, please downgrade me to the Mobile plan for INR 149."
+            "Yes, please proceed with the settlement offer."
         ],
-        "expected_action": "DOWNGRADE_AND_PAY_LINK",
-        "expected_amount": 149.00
+        "expected_action": "SETTLEMENT_OFFER",
+        "expected_amount": 279.00
     })
 
     # 2. Primary Benchmark Case 2: Notion SaaS Split Payment (Multi-turn)
@@ -72,9 +84,9 @@ def generate_50_synthetic_cases() -> List[Dict[str, Any]]:
         "dialogue_script": [
             "Invoice #303 payment on hold.",
             "Batch #44 had 20% damaged items. I am holding payment for INR 85,000 until resolved.",
-            "I will pay the 80% undisputed portion immediately if you hold the 20%."
+            "I will pay the undisputed portion immediately if you hold the disputed part."
         ],
-        "expected_action": "UNDISPUTED_80_PERCENT_LINK",
+        "expected_action": "UNDISPUTED_PORTION_LINK",
         "expected_amount": 68000.00
     })
 
@@ -96,10 +108,10 @@ def generate_50_synthetic_cases() -> List[Dict[str, Any]]:
         "expected_amount": 0.00
     })
 
-    # 5. Generate remaining 46 scenarios programmatically across all 15 merchants
+    # 5. Generate remaining 46 scenarios programmatically with exact matching merchant IDs
     for i in range(5, 51):
         m_id = MERCHANT_IDS[(i - 1) % len(MERCHANT_IDS)]
-        s_type = SCENARIO_TYPES[(i - 1) % len(SCENARIO_TYPES)]
+        s_type = MERCHANT_SCENARIO_TYPES.get(m_id, "STANDARD_RECOVERY")
         is_mt = (i % 5 != 0)  # 80% multi-turn
         turns = 3 if is_mt else 1
         base_amt = 150.0 + (i * 200.0)
@@ -118,7 +130,7 @@ def generate_50_synthetic_cases() -> List[Dict[str, Any]]:
                 f"Notice regarding payment failure for {m_id}.",
                 "Can you offer options for settlement?",
                 "Sounds good, issue the payment link."
-            ] if is_mt else ["Please send payment details."],
+            ] if is_mt else [f"Please send payment details for {m_id}."],
             "expected_action": "SETTLEMENT_OFFER",
             "expected_amount": base_amt
         })

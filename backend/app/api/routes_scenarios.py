@@ -27,11 +27,18 @@ SCENARIO_TYPE_TITLES = {
     "NOTION_SAAS_SPLIT_PAYMENT": "Corporate Milestone Split Payment",
     "QUICKKART_DISPUTED_GOODS": "Goods Dispute (80/20 Hold Resolution)",
     "ADVERSARIAL_INJECTION_ATTEMPT": "Adversarial Prompt Injection Attack",
-    "GATEWAY_TIMEOUT_RETRY": "Bank Gateway Timeout Auto-Retry",
-    "GRACE_EXTENSION_REQUEST": "Grace Period Extension Request",
-    "SAFE_CUSTODY_PAUSE": "Temporary Subscription Pause Request",
-    "LATE_FEE_WAIVER": "Late Fee Waiver Request",
-    "PROMPT_PAYMENT_DISCOUNT": "Prompt Payment Discount Negotiation"
+    "NETFLIX_PLAN_DOWNGRADE": "Plan Downgrade Negotiation",
+    "AMAZON_PRIME_PROMPT_DISCOUNT": "Prompt Renewal Concession",
+    "SPOTIFY_DUO_PAUSE": "Temporary Plan Pause Request",
+    "AIRTEL_GRACE_EXTENSION": "Grace Period Extension Request",
+    "JIO_FIBER_GATEWAY_RETRY": "Broadband Gateway Timeout Auto-Retry",
+    "SWIGGY_RENEWAL_CONCESSION": "Membership Concession Offer",
+    "ZOMATO_PAUSE_REQUEST": "Seasonal Subscription Hold",
+    "SLACK_SEAT_ADJUSTMENT": "Enterprise Seat Tier Adjustment",
+    "ZOHO_ONE_GATEWAY_TIMEOUT": "Enterprise Suite Gateway Timeout",
+    "JIRA_LICENSE_ADJUSTMENT": "Dev Software License Adjustment",
+    "UDAAN_BULK_DISCOUNT": "Wholesale Bulk Trade Settlement",
+    "RAZORPAYX_HUMAN_ESCALATION": "High-Value Payroll Escalation"
 }
 
 HUMAN_FAILURE_REASONS = {
