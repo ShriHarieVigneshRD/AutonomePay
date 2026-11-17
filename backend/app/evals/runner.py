@@ -20,8 +20,9 @@ from sqlalchemy.orm import Session
 
 from app.agents.graph import autonomepay_graph
 from app.agents.state import build_initial_state
+from app.core.config import settings
 from app.core.database import EvaluationBatch, EvaluationRun, SessionLocal
-from app.evals.dataset import generate_50_synthetic_cases
+from app.evals.dataset import generate_50_synthetic_cases, score_case
 from app.evals.judge import evaluate_rag_triad
 
 logger = logging.getLogger(__name__)
@@ -63,6 +64,20 @@ def compute_kpis(runs: list[EvaluationRun]) -> dict[str, Any]:
         "tokens_used": sum(r.tokens_used or 0 for r in runs),
         "pass_rate_pct": round(100 * sum(1 for r in scored if r.passed) / len(scored), 1) if scored else None,
     }
+
+
+def _langsmith_url() -> str | None:
+    """URL of the LangSmith run for this case, when tracing is on (never fabricated)."""
+    if not settings.langsmith_enabled:
+        return None
+    try:
+        from langsmith.run_helpers import get_current_run_tree
+
+        run = get_current_run_tree()
+        return run.get_url() if run else None
+    except Exception:
+        logger.debug("LangSmith run URL unavailable", exc_info=True)
+        return None
 
 
 def mark_interrupted_batches() -> None:
@@ -128,7 +143,7 @@ def run_single_simulation_case(case: dict[str, Any], batch_id: str | None = None
     recovered = float(payload.get("amount_in_inr", 0.0)) if payload.get("success") else 0.0
     guard_status = final_state.get("guardrail_status", "PASSED")
     run_id = f"run_{uuid.uuid4().hex[:12]}"
-    langsmith_trace_url = None
+    langsmith_trace_url = _langsmith_url()
     avg_latency = round(mean(t["latency_ms"] for t in execution_trace), 2) if execution_trace else None
 
     with SessionLocal() as db:
@@ -153,6 +168,8 @@ def run_single_simulation_case(case: dict[str, Any], batch_id: str | None = None
                 latency_ms=avg_latency,
                 tokens_used=tokens_used,
                 final_action=final_state.get("action"),
+                expected_action=case.get("expected_action"),
+                passed=score_case(case, final_state) if "expected" in case else None,
             )
         )
         db.commit()

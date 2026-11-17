@@ -46,7 +46,12 @@ def sync_dataset_to_langsmith() -> dict[str, Any]:
                     "scenario_type": tc["scenario_type"],
                     "simulated_dialogue": tc["dialogue_script"],
                 },
-                outputs={"expected_action": tc["expected_action"], "expected_amount": tc["expected_amount"]},
+                outputs={
+                    "expected_action": tc["expected_action"],
+                    "expected_actions": tc["expected"]["actions"],
+                    "expected_link": tc["expected"]["link"],
+                    "expected_amount": tc["expected_amount"],
+                },
                 dataset_id=dataset.id,
             )
 
