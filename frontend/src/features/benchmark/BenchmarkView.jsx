@@ -1,99 +1,19 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { Play, Lightning, ArrowSquareOut, ClockCounterClockwise, Clock } from '@phosphor-icons/react';
-import { api } from '../../lib/api';
+import { useBenchmark } from '../../hooks/useBenchmark';
 import TraceDrawer from './TraceDrawer';
 
+const fmt = (value, suffix = '') => (value === null || value === undefined ? '—' : `${value}${suffix}`);
+
 export default function BenchmarkView() {
-  const [batches, setBatches] = useState([]);
-  const [selectedBatchId, setSelectedBatchId] = useState(null);
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const { batches, selectedId, results: data, error, starting, running, run, select, retry } = useBenchmark();
   const [selectedRow, setSelectedRow] = useState(null);
-  const pollIntervalRef = useRef(null);
-
-  // Fetch all run versions
-  const fetchBatches = async (autoSelectFirst = false) => {
-    try {
-      const list = (await api.batches()) || [];
-      setBatches(list);
-
-      if (list.length > 0 && (autoSelectFirst || !selectedBatchId)) {
-        setSelectedBatchId(list[0].batch_id);
-        fetchResultsForBatch(list[0].batch_id);
-      }
-    } catch (e) {
-      console.error('Failed to fetch evaluation batches', e);
-    }
-  };
-
-  // Fetch specific batch results
-  const fetchResultsForBatch = async (batchId) => {
-    if (!batchId) return;
-    try {
-      const results = await api.results(batchId);
-      setData(results);
-      if (results?.batch?.status === 'RUNNING') {
-        setLoading(true);
-      } else {
-        setLoading(false);
-      }
-    } catch (e) {
-      console.error('Failed to fetch batch results', e);
-    }
-  };
-
-  useEffect(() => {
-    fetchBatches(true);
-    return () => {
-      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-    };
-  }, []);
-
-  const switchBatch = (batchId) => {
-    setSelectedBatchId(batchId);
-    fetchResultsForBatch(batchId);
-  };
-
-  const handleRunEvals = async () => {
-    setLoading(true);
-    try {
-      const { batch_id: newBatchId } = await api.runBenchmark();
-
-      setSelectedBatchId(newBatchId);
-      await fetchBatches(false);
-      await fetchResultsForBatch(newBatchId);
-
-      // Poll every 2 seconds for live case streaming
-      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-
-      pollIntervalRef.current = setInterval(async () => {
-        const resResults = await api.results(newBatchId);
-        setData(resResults);
-        await fetchBatches(false);
-
-        if (resResults?.batch?.status === 'COMPLETED') {
-          clearInterval(pollIntervalRef.current);
-          setLoading(false);
-        }
-      }, 2000);
-    } catch (e) {
-      console.error('Failed to trigger batch evals', e);
-      setLoading(false);
-    }
-  };
 
   const currentBatch = data?.batch || {};
-  const kpi = data?.kpi || {
-    total_invoiced: 0,
-    total_recovered: 0,
-    policy_breaches: 0,
-    adversarial_intercepts: 0,
-    rag_faithfulness_pct: 100.0,
-    avg_latency_ms: 142.5,
-  };
-
+  const kpi = data?.kpi || {};
   const matrix = data?.matrix || [];
-  const completedCount = currentBatch.completed_cases || matrix.length;
+  const loading = starting || currentBatch.status === 'RUNNING';
+  const completedCount = currentBatch.completed_cases ?? matrix.length;
   const totalCount = currentBatch.total_cases || 50;
   const progressPct = Math.round((completedCount / totalCount) * 100);
 
@@ -104,37 +24,39 @@ export default function BenchmarkView() {
         <div className="glass-panel p-4 rounded-2xl border border-slate-800/80">
           <span className="text-slate-400 font-mono text-[10px] uppercase block">Total Invoiced</span>
           <span className="text-lg font-bold text-slate-100 font-mono">
-            INR {kpi.total_invoiced?.toLocaleString('en-IN')}
+            INR {fmt(kpi.total_invoiced?.toLocaleString('en-IN'))}
           </span>
         </div>
 
         <div className="glass-panel p-4 rounded-2xl border border-slate-800/80">
           <span className="text-slate-400 font-mono text-[10px] uppercase block">Total Recovered</span>
           <span className="text-lg font-bold text-emerald-400 font-mono">
-            INR {kpi.total_recovered?.toLocaleString('en-IN')}
+            INR {fmt(kpi.total_recovered?.toLocaleString('en-IN'))}
           </span>
         </div>
 
         <div className="glass-panel p-4 rounded-2xl border border-slate-800/80">
-          <span className="text-slate-400 font-mono text-[10px] uppercase block">Policy Breaches</span>
-          <span className="text-lg font-bold text-emerald-400 font-mono">
-            {kpi.policy_breaches} <span className="text-xs font-normal text-slate-400">(0 Breaches)</span>
-          </span>
+          <span className="text-slate-400 font-mono text-[10px] uppercase block">Guardrail Corrections</span>
+          <span className="text-lg font-bold text-emerald-400 font-mono">{fmt(kpi.policy_breaches)}</span>
         </div>
 
         <div className="glass-panel p-4 rounded-2xl border border-slate-800/80">
           <span className="text-slate-400 font-mono text-[10px] uppercase block">Adversarial Intercepts</span>
-          <span className="text-lg font-bold text-amber-400 font-mono">{kpi.adversarial_intercepts}</span>
+          <span className="text-lg font-bold text-amber-400 font-mono">
+            {fmt(kpi.adversarial_intercepts)}
+          </span>
         </div>
 
         <div className="glass-panel p-4 rounded-2xl border border-slate-800/80">
           <span className="text-slate-400 font-mono text-[10px] uppercase block">RAG Faithfulness</span>
-          <span className="text-lg font-bold text-emerald-400 font-mono">{kpi.rag_faithfulness_pct}%</span>
+          <span className="text-lg font-bold text-emerald-400 font-mono">
+            {fmt(kpi.rag_faithfulness_pct, '%')}
+          </span>
         </div>
 
         <div className="glass-panel p-4 rounded-2xl border border-slate-800/80">
           <span className="text-slate-400 font-mono text-[10px] uppercase block">Avg Latency / Run</span>
-          <span className="text-lg font-bold text-slate-100 font-mono">{kpi.avg_latency_ms} ms</span>
+          <span className="text-lg font-bold text-slate-100 font-mono">{fmt(kpi.avg_latency_ms, ' ms')}</span>
         </div>
       </div>
 
@@ -157,25 +79,28 @@ export default function BenchmarkView() {
             <ClockCounterClockwise className="w-4 h-4 text-emerald-400" />
             <span className="text-slate-400 font-mono font-medium">Run Version:</span>
             <select
-              value={selectedBatchId || ''}
-              onChange={(e) => switchBatch(e.target.value)}
+              value={selectedId || ''}
+              onChange={(e) => select(e.target.value)}
               className="bg-transparent text-emerald-300 font-mono font-bold focus:outline-none cursor-pointer pr-2"
             >
               {batches.map((b) => (
                 <option key={b.batch_id} value={b.batch_id} className="bg-slate-900 text-slate-100">
-                  {b.name} {b.status === 'RUNNING' ? `(Evaluating ${b.completed_cases}/50)` : '(Completed)'}
+                  {b.name}{' '}
+                  {b.status === 'RUNNING'
+                    ? `(Evaluating ${b.completed_cases}/${b.total_cases})`
+                    : `(${b.status.toLowerCase()})`}
                 </option>
               ))}
             </select>
           </div>
 
           <button
-            onClick={handleRunEvals}
-            disabled={loading}
+            onClick={run}
+            disabled={loading || running}
             className="bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 px-6 py-2.5 rounded-xl font-bold text-xs flex items-center space-x-2 transition-all transform active:scale-95 shadow-lg cursor-pointer shrink-0"
           >
             <Play className="w-4 h-4" weight="fill" />
-            <span>{loading ? `Evaluating (${completedCount}/50)...` : 'Run New 50 Evals ▶'}</span>
+            <span>{loading ? `Evaluating (${completedCount}/${totalCount})...` : 'Run New 50 Evals'}</span>
           </button>
         </div>
       </div>
@@ -201,6 +126,21 @@ export default function BenchmarkView() {
         </div>
       )}
 
+      {error && (
+        <div
+          role="alert"
+          className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-2 text-xs text-rose-200"
+        >
+          {error}{' '}
+          <button className="underline" onClick={retry}>
+            Retry
+          </button>
+        </div>
+      )}
+      {!error && batches.length === 0 && (
+        <p className="text-sm text-slate-400">No benchmark runs yet. Use the run button to start one.</p>
+      )}
+
       {/* 50-Case Matrix Table */}
       <div className="glass-panel rounded-2xl border border-slate-800/80 overflow-hidden">
         <div className="overflow-x-auto">
@@ -218,8 +158,8 @@ export default function BenchmarkView() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 font-sans text-slate-300">
-              {matrix.map((row, idx) => (
-                <tr key={idx} className="hover:bg-slate-900/60 transition-colors">
+              {matrix.map((row) => (
+                <tr key={row.run_id} className="hover:bg-slate-900/60 transition-colors">
                   <td className="p-4 font-mono font-bold text-slate-100">{row.test_id}</td>
                   <td className="p-4 font-medium text-slate-200">{row.scenario_type}</td>
                   <td className="p-4 font-mono">{row.turns}</td>

@@ -24,6 +24,8 @@ os.environ.update(
         "LANGCHAIN_TRACING_V2": "false",
         "LANGSMITH_TRACING": "false",
         "MAX_SESSION_TOKEN_BUDGET": "6000",
+        "CHAT_RATE_LIMIT_PER_MIN": "100000",
+        "ADMIN_TOKEN": "",
     }
 )
 
@@ -31,6 +33,7 @@ import litellm  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
 from app.core import llm_gateway as gateway_module  # noqa: E402
+from app.core.config import settings  # noqa: E402
 from app.main import app  # noqa: E402
 
 
@@ -65,6 +68,7 @@ def llm_reply(monkeypatch):
 
         fake_completion.calls = []
         monkeypatch.setattr(litellm, "completion", fake_completion)
+        monkeypatch.setattr(settings, "OPENROUTER_API_KEY", "test-key")  # gateway skips the LLM without a key
         return fake_completion
 
     return _set

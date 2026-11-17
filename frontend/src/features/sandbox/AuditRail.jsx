@@ -11,7 +11,7 @@ import {
   Lock,
 } from '@phosphor-icons/react';
 
-export default function AuditRail({ traceData, scenario }) {
+export default function AuditRail({ traceData }) {
   const [openSection, setOpenSection] = useState('guardrails');
 
   if (!traceData) {
@@ -31,10 +31,6 @@ export default function AuditRail({ traceData, scenario }) {
   const isAdversarial = traceData.guardrail_status === 'ADVERSARIAL_INTERCEPTED';
   const isCorrected = traceData.guardrail_status === 'POLICY_BREACH_CORRECTED';
 
-  const maxDiscInrDisplay =
-    scenario?.max_discount_inr !== undefined ? `INR ${scenario.max_discount_inr.toFixed(2)}` : 'INR 20.00';
-  const maxGrace = scenario?.max_grace_days ?? 7;
-
   return (
     <div className="glass-panel rounded-2xl p-5 space-y-4 border border-slate-800/80">
       <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
@@ -43,7 +39,7 @@ export default function AuditRail({ traceData, scenario }) {
           <h3 className="text-sm font-bold text-slate-100">Live Execution Trace</h3>
         </div>
         <span className="font-mono text-xs text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
-          {traceData.latency_ms?.toFixed(1) || 120} ms
+          {traceData.latency_ms?.toFixed(0)} ms
         </span>
       </div>
 
@@ -111,71 +107,31 @@ export default function AuditRail({ traceData, scenario }) {
                 </div>
               )}
 
-              {/* Detailed Checklist of Evaluated Invariant Checks */}
+              {/* B17: real per-check results from the guardrail engine */}
               <div className="space-y-2 pt-1 border-t border-slate-800/80">
                 <span className="text-slate-400 block font-bold text-[10px] uppercase tracking-wider">
                   Evaluated Invariant Checks:
                 </span>
-
-                <div className="space-y-1.5 text-[10px]">
-                  <div className="flex items-start space-x-2 bg-slate-900/90 p-2 rounded-lg border border-slate-800">
-                    <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" weight="fill" />
-                    <div>
-                      <span className="font-semibold text-slate-200 block">
-                        Pre-LLM Adversarial Guardrail
-                      </span>
-                      <span className="text-slate-400 text-[9px]">
-                        Passed (No prompt injection / system override detected)
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start space-x-2 bg-slate-900/90 p-2 rounded-lg border border-slate-800">
-                    <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" weight="fill" />
-                    <div>
-                      <span className="font-semibold text-slate-200 block">Discount Ceiling Invariant</span>
-                      <span className="text-slate-400 text-[9px]">
-                        Passed (discount_inr ≤ merchant limit {maxDiscInrDisplay})
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start space-x-2 bg-slate-900/90 p-2 rounded-lg border border-slate-800">
-                    <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" weight="fill" />
-                    <div>
-                      <span className="font-semibold text-slate-200 block">
-                        Grace Period Threshold Invariant
-                      </span>
-                      <span className="text-slate-400 text-[9px]">
-                        Passed (grace_days ≤ limit {maxGrace} days)
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start space-x-2 bg-slate-900/90 p-2 rounded-lg border border-slate-800">
-                    <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" weight="fill" />
-                    <div>
-                      <span className="font-semibold text-slate-200 block">
-                        Arithmetic Split Sum Invariant
-                      </span>
-                      <span className="text-slate-400 text-[9px]">
-                        Passed (∑ split_amounts == proposed_amount)
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start space-x-2 bg-slate-900/90 p-2 rounded-lg border border-slate-800">
-                    <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" weight="fill" />
-                    <div>
-                      <span className="font-semibold text-slate-200 block">
-                        RAG Grounded Policy Compliance
-                      </span>
-                      <span className="text-slate-400 text-[9px]">
-                        Passed (Grounded in active merchant RAG policy chunks)
-                      </span>
-                    </div>
-                  </div>
-                </div>
+                <ul className="space-y-1.5 text-[10px]">
+                  {(traceData.guardrail_checks ?? []).map((check) => (
+                    <li
+                      key={check.id}
+                      className="flex items-start space-x-2 bg-slate-900/90 p-2 rounded-lg border border-slate-800"
+                    >
+                      {check.status === 'passed' || check.status === 'skipped' ? (
+                        <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" weight="fill" />
+                      ) : (
+                        <Warning className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" weight="fill" />
+                      )}
+                      <div>
+                        <span className="font-semibold text-slate-200 block">
+                          {check.label} ({check.status})
+                        </span>
+                        <span className="text-slate-400 text-[9px]">{check.detail}</span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
               </div>
             </div>
           )}

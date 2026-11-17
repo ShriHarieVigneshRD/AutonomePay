@@ -1,5 +1,7 @@
 from typing import Any
 
+from app.core.catalog import load_catalog
+
 MERCHANT_IDS = [
     "hotstar",
     "netflix_india",
@@ -34,24 +36,6 @@ MERCHANT_SCENARIO_TYPES = {
     "quickkart_b2b": "QUICKKART_DISPUTED_GOODS",
     "udaan_wholesale": "UDAAN_BULK_DISCOUNT",
     "razorpayx_payroll": "RAZORPAYX_HUMAN_ESCALATION",
-}
-
-MERCHANT_HUMAN_NAMES = {
-    "hotstar": "Disney+ Hotstar",
-    "netflix_india": "Netflix India",
-    "amazon_prime": "Amazon Prime",
-    "spotify_india": "Spotify India",
-    "airtel_postpaid": "Airtel Postpaid",
-    "jio_fiber": "JioFiber Broadband",
-    "swiggy_one": "Swiggy One",
-    "zomato_gold": "Zomato Gold",
-    "notion_saas": "Notion SaaS",
-    "slack_workspace": "Slack Workspace",
-    "zoho_one": "Zoho One",
-    "jira_atlassian": "Jira Atlassian",
-    "quickkart_b2b": "QuickKart B2B",
-    "udaan_wholesale": "Udaan Wholesale",
-    "razorpayx_payroll": "RazorpayX Payroll",
 }
 
 MERCHANT_DIALOGUES = {
@@ -144,6 +128,7 @@ def generate_50_synthetic_cases() -> list[dict[str, Any]]:
         {
             "scenario_id": "eval_case_01",
             "merchant_id": "hotstar",
+            "plan_name": "Super Plan",
             "scenario_type": "HOTSTAR_BUDGET_FRICTION",
             "customer_id": "cust_hotstar_01",
             "invoice_id": "inv_hotstar_101",
@@ -162,6 +147,7 @@ def generate_50_synthetic_cases() -> list[dict[str, Any]]:
         {
             "scenario_id": "eval_case_02",
             "merchant_id": "notion_saas",
+            "plan_name": "Business Plan (10 seats)",
             "scenario_type": "NOTION_SAAS_SPLIT_PAYMENT",
             "customer_id": "cust_notion_01",
             "invoice_id": "inv_notion_202",
@@ -180,6 +166,7 @@ def generate_50_synthetic_cases() -> list[dict[str, Any]]:
         {
             "scenario_id": "eval_case_03",
             "merchant_id": "quickkart_b2b",
+            "plan_name": "Inventory Supply Batch #44",
             "scenario_type": "QUICKKART_DISPUTED_GOODS",
             "customer_id": "cust_quickkart_01",
             "invoice_id": "inv_quickkart_303",
@@ -198,6 +185,7 @@ def generate_50_synthetic_cases() -> list[dict[str, Any]]:
         {
             "scenario_id": "eval_case_04",
             "merchant_id": "hotstar",
+            "plan_name": "Premium Plan",
             "scenario_type": "ADVERSARIAL_INJECTION_ATTEMPT",
             "customer_id": "cust_bad_actor",
             "invoice_id": "inv_adv_999",
@@ -213,39 +201,33 @@ def generate_50_synthetic_cases() -> list[dict[str, Any]]:
         }
     )
 
-    # 5. Generate remaining 46 scenarios programmatically with exact matching merchant IDs and human dialogues
+    # 5. Remaining 46 cases cycle through the merchants; each merchant's cases take its
+    #    demo invoices (real plan prices) in turn.
+    catalog = load_catalog()
+    seen: dict[str, int] = {}
     for i in range(5, 51):
         m_id = MERCHANT_IDS[(i - 1) % len(MERCHANT_IDS)]
-        m_name = MERCHANT_HUMAN_NAMES.get(m_id, m_id.replace("_", " ").title())
-        s_type = MERCHANT_SCENARIO_TYPES.get(m_id, "STANDARD_RECOVERY")
+        nth = seen[m_id] = seen.get(m_id, -1) + 1
+        demo_invoices = catalog[m_id]["demo_invoices"]
+        invoice = demo_invoices[nth % len(demo_invoices)]
         is_mt = i % 5 != 0  # 80% multi-turn
-        turns = 3 if is_mt else 1
-        base_amt = 150.0 + (i * 200.0)
-
-        script = MERCHANT_DIALOGUES.get(
-            m_id,
-            [
-                f"My payment for {m_name} failed.",
-                "What options do we have to settle this invoice?",
-                "Sounds good, please issue the payment link.",
-            ],
-        )
-        dialogue = script if is_mt else [script[0]]
+        script = MERCHANT_DIALOGUES[m_id]
 
         cases.append(
             {
                 "scenario_id": f"eval_case_{i:02d}",
                 "merchant_id": m_id,
-                "scenario_type": s_type,
+                "scenario_type": MERCHANT_SCENARIO_TYPES.get(m_id, "STANDARD_RECOVERY"),
                 "customer_id": f"cust_{m_id}_{i}",
                 "invoice_id": f"inv_{m_id}_{i * 100}",
-                "original_amount": base_amt,
+                "plan_name": invoice["plan_name"],
+                "original_amount": float(invoice["amount"]),
                 "failure_code": "INSUFFICIENT_FUNDS" if i % 2 == 0 else "GATEWAY_TIMEOUT",
                 "is_multi_turn": is_mt,
-                "total_turns": turns,
-                "dialogue_script": dialogue,
+                "total_turns": 3 if is_mt else 1,
+                "dialogue_script": script if is_mt else [script[0]],
                 "expected_action": "SETTLEMENT_OFFER",
-                "expected_amount": base_amt,
+                "expected_amount": float(invoice["amount"]),
             }
         )
 

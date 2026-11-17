@@ -1,126 +1,158 @@
-"""Settlement node: reason over the merchant policy with the LLM, enforce guardrails,
-handle escalation and discontinuation, and create the Razorpay payment link."""
+"""Settlement node: ask the LLM for an offer within merchant policy, enforce the deterministic
+guardrails, and create a payment link only for the approved amount and only with consent."""
 
 import time
 import uuid
+from typing import Any
 
 from app.agents.settlement.offer import (
-    amount_stated_in_message,
+    approved_offer_message,
     heuristic_offer,
     is_asking_for_confirmation,
-    is_initial_turn,
+    legitimate_amounts,
     parse_llm_json,
     strip_markdown,
+    strip_urls,
+    unapproved_amounts,
     user_gave_consent,
 )
-from app.agents.settlement.prompt import build_settlement_prompt
+from app.agents.settlement.prompt import TICKET_PLACEHOLDER, build_settlement_prompt
 from app.agents.state import AutonomeState
-from app.core.database import Merchant, SessionLocal
+from app.core.catalog import MerchantRules, get_merchant_rules
+from app.core.database import Customer, SessionLocal
 from app.core.llm_gateway import gateway
-from app.guardrails.input_guard import run_pre_llm_guardrail
-from app.guardrails.offer_guard import run_post_llm_guardrail
-from app.payments.razorpay import razorpay_mcp
+from app.guardrails.input_guard import screen_conversation
+from app.guardrails.offer_guard import NO_PAYMENT_ACTIONS, run_post_llm_guardrail
+from app.payments.razorpay import razorpay_client
+
+BUDGET_MESSAGE = (
+    "This conversation has reached its length limit. Please start a new conversation to continue."
+)
+LINK_FAILED_MESSAGE = "I couldn't create the payment link just now. Please try again in a moment."
+STEP_FOR_ACTION = {
+    "HUMAN_ESCALATION": "HUMAN_ESCALATED",
+    "GRACEFUL_DISCONTINUATION": "DISCONTINUATION_ACCEPTED",
+}
+
+
+def _finish(state: AutonomeState, start: float, **updates: Any) -> AutonomeState:
+    state.update(updates)  # type: ignore[typeddict-item]
+    state["latency_ms"] = round((time.time() - start) * 1000, 2)
+    return state
 
 
 def settlement_node(state: AutonomeState) -> AutonomeState:
-    start_time = time.time()
+    start = time.time()
     messages = state.get("messages", [])
-    last_user_msg = messages[-1]["content"] if messages else "Hello"
+    last_user_msg = next((m["content"] for m in reversed(messages) if m.get("role") == "user"), "")
 
-    # 1. Input guardrail
-    pre_check = run_pre_llm_guardrail(last_user_msg)
-    if not pre_check["passed"]:
-        state["guardrail_status"] = "ADVERSARIAL_INTERCEPTED"
-        state["guardrail_violations"] = [pre_check["refusal_reason"]]
-        state["final_response"] = pre_check["safe_response"]
-        state["step"] = "GUARDRAIL_INTERCEPTED"
-        state["latency_ms"] = round((time.time() - start_time) * 1000, 2)
-        return state
+    # 1. Input guardrail over every user turn
+    screen = screen_conversation(messages)
+    if not screen["passed"]:
+        return _finish(
+            state, start,
+            guardrail_status="ADVERSARIAL_INTERCEPTED",
+            guardrail_violations=[screen["refusal_reason"]],
+            guardrail_checks=[{"id": "input", "label": "Prompt-injection screen", "status": "blocked",
+                               "detail": screen["refusal_reason"]}],
+            final_response=screen["safe_response"], action="BLOCKED", step="GUARDRAIL_INTERCEPTED",
+            razorpay_payload=None,
+        )  # fmt: skip
+    input_check = {"id": "input", "label": "Prompt-injection screen", "status": "passed",
+                   "detail": "No injection patterns in the customer's messages."}  # fmt: skip
 
-    merchant_id = state.get("merchant_id", "hotstar")
-    original_amount = float(state.get("original_amount", 299.00))
-    intent = state.get("customer_intent", "STANDARD_RECOVERY")
+    original_amount = float(state["original_amount"])
+    merchant_id = state["merchant_id"]
+    with SessionLocal() as db:
+        rules = get_merchant_rules(db, merchant_id) or MerchantRules(
+            merchant_id, state.get("merchant_name") or merchant_id
+        )
+
+    # 2. Ask the LLM; fall back to the policy heuristic when it is unavailable or unusable
+    session_id = state.get("session_id") or f"sess_{uuid.uuid4().hex}"
+    llm = gateway.completion(
+        messages=messages,
+        system_prompt=build_settlement_prompt(
+            rules=rules,
+            original_amount=original_amount,
+            intent=state.get("customer_intent", ""),
+            policy_context="\n\n".join(state.get("retrieved_policy_chunks", [])),
+        ),
+        session_id=session_id,
+    )
+    state["tokens_used"] = llm.get("tokens_used", 0)
+    if llm.get("error") == "TOKEN_BUDGET_EXCEEDED":
+        return _finish(state, start, final_response=BUDGET_MESSAGE, action="NONE", step="BUDGET_EXHAUSTED",
+                       guardrail_checks=[input_check], razorpay_payload=None)  # fmt: skip
+
+    parsed = parse_llm_json(llm.get("content", "")) or heuristic_offer(last_user_msg, rules, original_amount)
+
+    # 3. Deterministic offer guardrail
+    guard = run_post_llm_guardrail(
+        parsed.get("offer"), rules, original_amount, str(parsed.get("action") or "PROPOSE_SETTLEMENT").upper()
+    )
+    action, offer = guard["action"], guard["corrected_offer"]
+    violations, checks = list(guard["violations"]), [input_check, *guard["checks"]]
+
+    # 4. Customer message must agree with the approved offer
+    raw_message = parsed.get("message")
+    message = raw_message if isinstance(raw_message, str) else ""
+    message = strip_urls(strip_markdown(message)) or approved_offer_message(action, offer, rules)
+    if action not in NO_PAYMENT_ACTIONS:
+        bad = unapproved_amounts(message, legitimate_amounts(rules, original_amount, offer))
+        if bad:
+            detail = f"Message stated INR {bad[0]:,.2f}, which is not an approved amount; replaced with the approved offer."
+            violations.append(detail)
+            checks.append(
+                {
+                    "id": "message",
+                    "label": "Message matches approved offer",
+                    "status": "corrected",
+                    "detail": detail,
+                }
+            )
+            message = approved_offer_message(action, offer, rules)
+        else:
+            checks.append({"id": "message", "label": "Message matches approved offer", "status": "passed",
+                           "detail": "Every amount in the reply is an approved figure."})  # fmt: skip
+    if action == "HUMAN_ESCALATION":
+        ticket = f"#ESC-{uuid.uuid4().hex[:6].upper()}"
+        message = message.replace(TICKET_PLACEHOLDER, ticket)
+        if ticket not in message:
+            message += f" Your ticket number is {ticket}."
+    message = message.replace(TICKET_PLACEHOLDER, "").strip()
+
+    state["proposed_offer"] = offer
+    state["guardrail_violations"] = violations
+    state["guardrail_status"] = "POLICY_BREACH_CORRECTED" if violations else "PASSED"
+
+    # 5. Payment link: approved amount only, explicit customer consent only
+    issue_link = (
+        action not in NO_PAYMENT_ACTIONS
+        and bool(parsed.get("should_generate_link"))
+        and user_gave_consent(last_user_msg)
+        and not is_asking_for_confirmation(message)
+    )
+    if not issue_link:
+        return _finish(state, start, final_response=message, action=action, guardrail_checks=checks,
+                       step=STEP_FOR_ACTION.get(action, "OFFER_PROPOSED"), razorpay_payload=None)  # fmt: skip
 
     with SessionLocal() as db:
-        merchant = db.get(Merchant, merchant_id)
-        max_discount_inr = (
-            float(merchant.max_discount_inr) if merchant and merchant.max_discount_inr is not None else 20.00
-        )
-        max_grace_days = (
-            int(merchant.max_grace_days) if merchant and merchant.max_grace_days is not None else 7
-        )
-        merchant_name = state.get("merchant_name") or (
-            merchant.name if merchant else merchant_id.replace("_", " ").title()
-        )
-
-    # 2. Ask the LLM for a structured offer
-    system_prompt = build_settlement_prompt(
-        merchant_name=merchant_name,
-        original_amount=original_amount,
-        intent=intent,
-        max_discount_inr=max_discount_inr,
-        max_grace_days=max_grace_days,
-        policy_context="\n".join(state.get("retrieved_policy_chunks", [])),
+        customer = db.get(Customer, state["customer_id"])
+        contact = (customer.name, customer.email, customer.phone) if customer else (None, None, None)
+    result = razorpay_client.create_payment_link(
+        amount_in_inr=offer["proposed_amount"],
+        description=f"Settlement for invoice {state['invoice_id']}",
+        reference_id=f"{state['invoice_id']}-{uuid.uuid4().hex[:8]}",
+        customer_name=contact[0],
+        customer_email=contact[1],
+        customer_phone=contact[2],
     )
-    session_id = state.get("session_id") or f"sess_{merchant_id}_{uuid.uuid4().hex[:6]}"
-    llm_res = gateway.completion(messages=messages, system_prompt=system_prompt, session_id=session_id)
-    raw_content = llm_res.get("content", "")
-
-    parsed = parse_llm_json(raw_content) or heuristic_offer(
-        last_user_msg, raw_content, original_amount, max_discount_inr, max_grace_days
-    )
-    action = parsed.get("action", "PROPOSE_SETTLEMENT")
-    offer = parsed.get("offer", {})
-    offer["original_amount"] = original_amount
-    if "proposed_amount" not in offer or float(offer.get("proposed_amount", 0)) <= 0:
-        offer["proposed_amount"] = original_amount
-
-    # 3. Offer guardrail
-    post_check = run_post_llm_guardrail(
-        offer_data=offer, max_discount_inr=max_discount_inr, max_grace_days=max_grace_days, action=action
-    )
-    corrected_offer = post_check["corrected_offer"]
-    state["proposed_offer"] = corrected_offer
-    state["guardrail_violations"] = post_check["violations"]
-    state["guardrail_status"] = "POLICY_BREACH_CORRECTED" if post_check["violations"] else "PASSED"
-
-    # 4. Message clean-up and price alignment
-    should_generate_link = bool(parsed.get("should_generate_link", False))
-    cust_message = strip_markdown(parsed.get("message", "Here is your response."))
-
-    final_amount = corrected_offer["proposed_amount"]
-    stated = amount_stated_in_message(
-        cust_message, action, corrected_offer["proposed_amount"], original_amount, max_discount_inr
-    )
-    if stated is not None:
-        final_amount = stated
-        state["proposed_offer"]["proposed_amount"] = final_amount
-
-    # 5. Link gating
-    if is_asking_for_confirmation(cust_message) or (
-        is_initial_turn(messages) and not user_gave_consent(last_user_msg)
-    ):
-        should_generate_link = False
-
-    if action == "HUMAN_ESCALATION":
-        state["step"] = "HUMAN_ESCALATED"
-        state["razorpay_payload"] = None
-    elif action == "GRACEFUL_DISCONTINUATION":
-        state["step"] = "DISCONTINUATION_ACCEPTED"
-        state["razorpay_payload"] = None
-    elif should_generate_link:
-        mcp_result = razorpay_mcp.razorpay_create_payment_link(
-            amount_in_inr=final_amount,
-            customer_id=state.get("customer_id", "cust_123"),
-            description=f"Settlement payment for invoice {state.get('invoice_id', 'inv_101')}",
-        )
-        state["razorpay_payload"] = mcp_result
-        link_url = mcp_result.get("short_url", "https://rzp.io/i/mocklink")
-        if "rzp.io" not in cust_message and "http" not in cust_message:
-            cust_message += f"\n\n[ Pay INR {final_amount:.2f} via Razorpay ]({link_url})"
+    if result["success"]:
+        message += f"\n\n[ Pay INR {offer['proposed_amount']:.2f} via Razorpay ]({result['short_url']})"
+        step = "LINK_ISSUED"
     else:
-        state["razorpay_payload"] = None
-
-    state["final_response"] = cust_message
-    state["latency_ms"] = round((time.time() - start_time) * 1000, 2)
-    return state
+        message += f"\n\n{LINK_FAILED_MESSAGE}"
+        step = "LINK_FAILED"
+    return _finish(state, start, final_response=message, action=action, guardrail_checks=checks, step=step,
+                   razorpay_payload=result)  # fmt: skip

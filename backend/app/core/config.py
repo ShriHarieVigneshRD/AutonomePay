@@ -14,6 +14,12 @@ class Settings(BaseSettings):
 
     DATABASE_URL: str = "sqlite:///./autonomepay.db"
 
+    # Web / security
+    CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173,https://autonome-pay.vercel.app"
+    PUBLIC_APP_URL: str = "http://localhost:5173"  # where sandbox payment links point
+    ADMIN_TOKEN: str = ""  # if set, starting benchmark runs requires the X-Admin-Token header
+    CHAT_RATE_LIMIT_PER_MIN: int = 30  # per client IP
+
     # LLM via LiteLLM → OpenRouter, tried in this order
     OPENROUTER_API_KEY: str = ""
     PRIMARY_MODEL: str = "openrouter/minimax/minimax-m3:free"
@@ -31,6 +37,10 @@ class Settings(BaseSettings):
     # Razorpay; key ids starting with "rzp_test_mock" mean sandbox links
     RAZORPAY_KEY_ID: str = "rzp_test_mock12345"
     RAZORPAY_KEY_SECRET: str = "mock_secret_67890"
+
+    @property
+    def cors_origins(self) -> list[str]:
+        return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
 
     @property
     def model_chain(self) -> list[str]:

@@ -15,3 +15,18 @@ export const api = {
   results: (batchId) => data(http.get('/evals/results', { params: { batch_id: batchId } })),
   runBenchmark: () => data(http.post('/evals/run')),
 };
+
+/** One readable sentence for any failed request. */
+export function errorMessage(error) {
+  const detail = error?.response?.data?.detail;
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail) && detail[0]?.msg) return detail[0].msg;
+  if (error?.response?.status === 429) return 'Too many requests. Please wait a moment.';
+  if (error?.code === 'ECONNABORTED') return 'The server took too long to respond.';
+  if (!error?.response) return 'Cannot reach the AutonomePay server. Check that the backend is running.';
+  return `Request failed (${error.response.status}).`;
+}
+
+export function newSessionId() {
+  return `s_${crypto.randomUUID().replaceAll('-', '')}`;
+}

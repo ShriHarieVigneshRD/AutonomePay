@@ -34,8 +34,10 @@ class PolicyRetriever:
                     content = f.read()
 
                 # Extract merchant_id from doc or filename
-                merchant_match = re.search(r"Merchant ID: `([^`]+)`", content)
-                merchant_id = merchant_match.group(1) if merchant_match else filename.split("_")[1]
+                # "- **Merchant ID:** `netflix_india`", else the filename: 02_netflix_india_policy.md
+                merchant_match = re.search(r"Merchant ID:\**\s*`([^`]+)`", content)
+                stem = re.sub(r"^\d+_|_policy$", "", filename.removesuffix(".md"))
+                merchant_id = merchant_match.group(1) if merchant_match else stem
 
                 # Chunk document by headers or double newlines
                 chunks = self._chunk_text(content)

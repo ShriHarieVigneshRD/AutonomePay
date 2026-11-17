@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { ShieldCheck, ChatTeardropText, ChartBar } from '@phosphor-icons/react';
 
-import { api } from './lib/api';
+import { useScenarios } from './hooks/useScenarios';
+import { useConversation } from './hooks/useConversation';
 import ScenarioPicker from './features/sandbox/ScenarioPicker';
 import CaseFile from './features/sandbox/CaseFile';
 import ChatPanel from './features/sandbox/ChatPanel';
@@ -10,64 +11,10 @@ import BenchmarkView from './features/benchmark/BenchmarkView';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('chat'); // 'chat' | 'evals'
-  const [scenarios, setScenarios] = useState([]);
-  const [activeScenario, setActiveScenario] = useState(null);
-
-  const [messages, setMessages] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [traceData, setTraceData] = useState(null);
-
-  // Fetch preset scenarios on mount
-  useEffect(() => {
-    api
-      .scenarios()
-      .then((list) => {
-        setScenarios(list);
-        if (list.length > 0) {
-          selectScenario(list[0]);
-        }
-      })
-      .catch((err) => {
-        console.error('Failed to load scenarios:', err);
-      });
-  }, []);
-
-  const selectScenario = (sc) => {
-    setActiveScenario(sc);
-    setMessages([{ role: 'assistant', content: sc.initial_message }]);
-    setTraceData(null);
-  };
-
-  const handleSendMessage = async (userMsg) => {
-    if (!activeScenario) return;
-
-    const newMsgs = [...messages, { role: 'user', content: userMsg }];
-    setMessages(newMsgs);
-    setLoading(true);
-
-    try {
-      const data = await api.chat({
-        merchant_id: activeScenario.merchant_id,
-        customer_id: activeScenario.customer_id,
-        invoice_id: activeScenario.invoice_id,
-        messages: newMsgs,
-      });
-
-      setMessages([...newMsgs, { role: 'assistant', content: data.final_response }]);
-      setTraceData(data);
-    } catch (e) {
-      console.error('Chat turn failed', e);
-      setMessages([
-        ...newMsgs,
-        {
-          role: 'assistant',
-          content: 'We encountered an issue processing your request. Please try again.',
-        },
-      ]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { scenarios, error: scenariosError, retry: retryScenarios } = useScenarios();
+  const [selectedId, setSelectedId] = useState(null);
+  const activeScenario = scenarios.find((s) => s.id === selectedId) ?? scenarios[0] ?? null;
+  const conversation = useConversation(activeScenario);
 
   return (
     <div className="h-screen bg-[#090d16] text-slate-100 flex flex-col overflow-hidden selection:bg-emerald-500/30 selection:text-emerald-300">
@@ -116,38 +63,45 @@ export default function App() {
           </button>
         </div>
 
-        {/* Header Scenario Selector */}
         {activeTab === 'chat' && (
           <ScenarioPicker
             scenarios={scenarios}
             activeScenario={activeScenario}
-            onSelectScenario={selectScenario}
+            onSelectScenario={(sc) => setSelectedId(sc.id)}
           />
         )}
       </header>
 
-      {/* Main App Content Area (Viewport Lock: h-[calc(100vh-55px)]) */}
+      {scenariosError && (
+        <div
+          role="alert"
+          className="mx-4 mt-3 rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-2 text-xs text-rose-200"
+        >
+          {scenariosError}{' '}
+          <button className="underline" onClick={retryScenarios}>
+            Retry
+          </button>
+        </div>
+      )}
+
       <main className="flex-1 max-w-[1600px] w-full mx-auto p-4 overflow-hidden flex flex-col h-[calc(100vh-55px)]">
         {activeTab === 'chat' ? (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch h-full flex-1 overflow-hidden">
-            {/* Left Column: Context Card (3 cols) */}
             <div className="lg:col-span-3 h-full overflow-hidden flex flex-col">
               <CaseFile scenario={activeScenario} />
             </div>
-
-            {/* Center Column: Interactive Chat (6 cols) */}
             <div className="lg:col-span-6 h-full overflow-hidden flex flex-col">
               <ChatPanel
-                messages={messages}
-                onSendMessage={handleSendMessage}
-                loading={loading}
+                messages={conversation.messages}
+                onSendMessage={conversation.send}
+                loading={conversation.sending}
+                failed={conversation.failed}
+                onRetry={conversation.retry}
                 activeScenario={activeScenario}
               />
             </div>
-
-            {/* Right Column: Live Trace Inspector (3 cols) */}
             <div className="lg:col-span-3 h-full overflow-hidden flex flex-col">
-              <AuditRail traceData={traceData} scenario={activeScenario} />
+              <AuditRail traceData={conversation.trace} scenario={activeScenario} />
             </div>
           </div>
         ) : (

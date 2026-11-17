@@ -13,8 +13,22 @@ logger = logging.getLogger(__name__)
 
 # table -> {column: DDL type and default}
 ADDED_COLUMNS: dict[str, dict[str, str]] = {
-    "merchants": {"max_discount_inr": "NUMERIC(12, 2) DEFAULT 20.00"},
-    "evaluation_runs": {"batch_id": "VARCHAR(64)"},
+    "merchants": {
+        "max_discount_inr": "NUMERIC(12, 2) DEFAULT 20.00",
+        "split_schedule_pct": "JSON",
+        "split_min_invoice_inr": "NUMERIC(12, 2)",
+        "partial_settlement_pct": "NUMERIC(5, 2)",
+    },
+    "evaluation_runs": {
+        "batch_id": "VARCHAR(64)",
+        "invoice_amount": "NUMERIC(12, 2)",
+        "link_amount": "NUMERIC(12, 2)",
+        "latency_ms": "NUMERIC(10, 2)",
+        "tokens_used": "INTEGER",
+        "final_action": "VARCHAR(40)",
+        "expected_action": "VARCHAR(40)",
+        "passed": "BOOLEAN",
+    },
 }
 
 

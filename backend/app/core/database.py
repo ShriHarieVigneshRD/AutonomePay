@@ -35,9 +35,30 @@ class Merchant(Base):
     max_grace_days: Mapped[int | None] = mapped_column(Integer, default=7)
     auto_escalation_limit: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), default=50000.00)
     policy_doc_slug: Mapped[str] = mapped_column(String(100), nullable=False)
+    # Policy-approved alternatives to a discount (all optional; see data/merchants.json)
+    split_schedule_pct: Mapped[list[float] | None] = mapped_column(JSON, nullable=True)
+    split_min_invoice_inr: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    partial_settlement_pct: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
 
+    plans: Mapped[list["MerchantPlan"]] = relationship(
+        back_populates="merchant", cascade="all, delete-orphan", order_by="MerchantPlan.price_inr"
+    )
     customers: Mapped[list["Customer"]] = relationship(back_populates="merchant")
     invoices: Mapped[list["Invoice"]] = relationship(back_populates="merchant")
+
+
+class MerchantPlan(Base):
+    """A plan the merchant sells; a downgrade must land on one of these prices."""
+
+    __tablename__ = "merchant_plans"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    merchant_id: Mapped[str] = mapped_column(String(64), ForeignKey("merchants.merchant_id"), nullable=False)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    price_inr: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    period: Mapped[str | None] = mapped_column(String(40), nullable=True)
+
+    merchant: Mapped["Merchant"] = relationship(back_populates="plans")
 
 
 class Customer(Base):
@@ -109,6 +130,14 @@ class EvaluationRun(Base):
     amount_recovered: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), default=0.00)
     langsmith_trace_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     execution_trace: Mapped[Any | None] = mapped_column(JSON, nullable=True)
+    # Measured results (nullable: rows from older versions don't have them)
+    invoice_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    link_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    latency_ms: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
+    tokens_used: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    final_action: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    expected_action: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    passed: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     created_at: Mapped[datetime | None] = mapped_column(DateTime, default=utcnow)
 
     batch: Mapped["EvaluationBatch"] = relationship(back_populates="runs")

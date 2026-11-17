@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import chat, evals, scenarios
 from app.core.config import settings
 from app.core.database import init_db
+from app.evals.runner import mark_interrupted_batches
 
 logging.basicConfig(level=settings.LOG_LEVEL, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
@@ -14,6 +15,7 @@ logging.basicConfig(level=settings.LOG_LEVEL, format="%(asctime)s %(levelname)s 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     init_db()
+    mark_interrupted_batches()
     yield
 
 
@@ -26,10 +28,10 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=settings.cors_origins,
+    allow_credentials=False,  # no cookies are used
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "X-Admin-Token"],
 )
 
 app.include_router(chat.router, prefix=settings.API_V1_STR, tags=["chat"])

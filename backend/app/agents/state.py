@@ -2,6 +2,7 @@ from typing import Any, TypedDict
 
 
 class AutonomeState(TypedDict):
+    # LangGraph drops keys that are not declared here.
     session_id: str | None
     messages: list[dict[str, str]]
     merchant_id: str
@@ -15,11 +16,14 @@ class AutonomeState(TypedDict):
     retrieved_policy_chunks: list[str]
     guardrail_status: str
     guardrail_violations: list[str]
+    guardrail_checks: list[dict[str, str]]
     proposed_offer: dict[str, Any]
     razorpay_payload: dict[str, Any] | None
     final_response: str
+    action: str
     step: str
     latency_ms: float
+    tokens_used: int
 
 
 def build_initial_state(
@@ -48,9 +52,12 @@ def build_initial_state(
         "retrieved_policy_chunks": [],
         "guardrail_status": "PASSED",
         "guardrail_violations": [],
+        "guardrail_checks": [],
         "proposed_offer": {},
         "razorpay_payload": None,
         "final_response": "",
+        "action": "",
         "step": "INIT",
         "latency_ms": 0.0,
+        "tokens_used": 0,
     }

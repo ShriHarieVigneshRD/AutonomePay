@@ -2,6 +2,7 @@ import logging
 import time
 import uuid
 from datetime import datetime
+from statistics import mean
 from typing import Any
 
 try:
@@ -47,18 +48,29 @@ def create_batch(db: Session, total_cases: int = 50) -> EvaluationBatch:
 
 
 def compute_kpis(runs: list[EvaluationRun]) -> dict[str, Any]:
-    total_recovered = sum(float(r.amount_recovered or 0) for r in runs)
-    avg_faithfulness = (
-        sum(float(r.rag_faithfulness or 1.0) for r in runs) / len(runs) * 100.0 if runs else 98.5
-    )
+    """Every figure is measured from stored runs; None means "not measured" (e.g. pre-upgrade rows)."""
+    latencies = [float(r.latency_ms) for r in runs if r.latency_ms is not None]
+    faithfulness = [float(r.rag_faithfulness) for r in runs if r.rag_faithfulness is not None]
+    scored = [r for r in runs if r.passed is not None]
     return {
-        "total_invoiced": round(total_recovered * 1.05, 2),
-        "total_recovered": round(total_recovered, 2),
+        "total_invoiced": round(sum(float(r.invoice_amount or 0) for r in runs), 2),
+        "total_recovered": round(sum(float(r.link_amount or 0) for r in runs), 2),
+        "links_issued": sum(1 for r in runs if r.link_amount),
         "policy_breaches": sum(1 for r in runs if r.policy_breach),
         "adversarial_intercepts": sum(1 for r in runs if r.adversarial_intercepted),
-        "rag_faithfulness_pct": round(avg_faithfulness, 1),
-        "avg_latency_ms": 142.5,
+        "rag_faithfulness_pct": round(mean(faithfulness) * 100, 1) if faithfulness else None,
+        "avg_latency_ms": round(mean(latencies), 1) if latencies else None,
+        "tokens_used": sum(r.tokens_used or 0 for r in runs),
+        "pass_rate_pct": round(100 * sum(1 for r in scored if r.passed) / len(scored), 1) if scored else None,
     }
+
+
+def mark_interrupted_batches() -> None:
+    """Batches still RUNNING at startup were killed with the previous process."""
+    with SessionLocal() as db:
+        for batch in db.query(EvaluationBatch).filter(EvaluationBatch.status == "RUNNING"):
+            batch.status = "INTERRUPTED"
+        db.commit()
 
 
 @traceable(name="autonomepay_multi_turn_simulation")
@@ -72,6 +84,7 @@ def run_single_simulation_case(case: dict[str, Any], batch_id: str | None = None
     messages: list[dict[str, str]] = []
     execution_trace = []
     final_state: dict[str, Any] = {}
+    tokens_used = 0
 
     for turn_idx, user_turn in enumerate(dialogue, start=1):
         messages.append({"role": "user", "content": user_turn})
@@ -91,6 +104,7 @@ def run_single_simulation_case(case: dict[str, Any], batch_id: str | None = None
         final_state = autonomepay_graph.invoke(initial_state)
         elapsed = round((time.time() - start_t) * 1000, 2)
 
+        tokens_used += final_state.get("tokens_used", 0)
         bot_response = final_state.get("final_response", "")
         messages.append({"role": "assistant", "content": bot_response})
         execution_trace.append(
@@ -99,6 +113,7 @@ def run_single_simulation_case(case: dict[str, Any], batch_id: str | None = None
                 "user": user_turn,
                 "agent": bot_response,
                 "guardrail_status": final_state.get("guardrail_status"),
+                "action": final_state.get("action"),
                 "latency_ms": elapsed,
             }
         )
@@ -109,10 +124,12 @@ def run_single_simulation_case(case: dict[str, Any], batch_id: str | None = None
         response_text=final_state.get("final_response", ""),
         proposed_offer=final_state.get("proposed_offer", {}),
     )
-    recovered = float(final_state.get("proposed_offer", {}).get("proposed_amount", 0.0))
+    payload = final_state.get("razorpay_payload") or {}
+    recovered = float(payload.get("amount_in_inr", 0.0)) if payload.get("success") else 0.0
     guard_status = final_state.get("guardrail_status", "PASSED")
     run_id = f"run_{uuid.uuid4().hex[:12]}"
-    langsmith_trace_url = f"https://smith.langchain.com/o/autonomepay/r/{run_id}"
+    langsmith_trace_url = None
+    avg_latency = round(mean(t["latency_ms"] for t in execution_trace), 2) if execution_trace else None
 
     with SessionLocal() as db:
         db.add(
@@ -131,6 +148,11 @@ def run_single_simulation_case(case: dict[str, Any], batch_id: str | None = None
                 amount_recovered=recovered,
                 langsmith_trace_url=langsmith_trace_url,
                 execution_trace=execution_trace,
+                invoice_amount=case.get("original_amount"),
+                link_amount=recovered or None,
+                latency_ms=avg_latency,
+                tokens_used=tokens_used,
+                final_action=final_state.get("action"),
             )
         )
         db.commit()
