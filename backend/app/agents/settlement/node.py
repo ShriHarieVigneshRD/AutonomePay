@@ -33,6 +33,13 @@ BUDGET_MESSAGE = (
     "This conversation has reached its length limit. Please start a new conversation to continue."
 )
 LINK_FAILED_MESSAGE = "I couldn't create the payment link just now. Please try again in a moment."
+# Why the backup rulebook answered instead of the LLM (shown in the benchmark trace).
+RULEBOOK_REASONS = {
+    "LLM_NOT_CONFIGURED": "no LLM key configured",
+    "LLM_UNAVAILABLE": "every LLM in the chain failed",
+    "RATE_LIMITED": "LLM rate limit (free tier)",
+    "DAILY_LIMIT": "LLM daily free limit reached",
+}
 STEP_FOR_ACTION = {
     "HUMAN_ESCALATION": "HUMAN_ESCALATED",
     "GRACEFUL_DISCONTINUATION": "DISCONTINUATION_ACCEPTED",
@@ -60,7 +67,7 @@ def settlement_node(state: AutonomeState) -> AutonomeState:
             guardrail_checks=[{"id": "input", "label": "Prompt-injection screen", "status": "blocked",
                                "detail": screen["refusal_reason"]}],
             final_response=screen["safe_response"], action="BLOCKED", step="GUARDRAIL_INTERCEPTED",
-            razorpay_payload=None,
+            razorpay_payload=None, reply_source={"by": "guardrail", "reason": "prompt injection blocked"},
         )  # fmt: skip
     input_check = {"id": "input", "label": "Prompt-injection screen", "status": "passed",
                    "detail": "No injection patterns in the customer's messages."}  # fmt: skip
@@ -83,15 +90,20 @@ def settlement_node(state: AutonomeState) -> AutonomeState:
             policy_context="\n\n".join(state.get("retrieved_policy_chunks", [])),
         ),
         session_id=session_id,
+        patient=state.get("benchmark", False),
     )
     state["tokens_used"] = llm.get("tokens_used", 0)
     if llm.get("error") == "TOKEN_BUDGET_EXCEEDED":
         return _finish(state, start, final_response=BUDGET_MESSAGE, action="NONE", step="BUDGET_EXHAUSTED",
-                       guardrail_checks=[input_check], razorpay_payload=None)  # fmt: skip
+                       guardrail_checks=[input_check], razorpay_payload=None,
+                       reply_source={"by": "guardrail", "reason": "conversation length limit"})  # fmt: skip
 
     content = llm.get("content", "")
     parsed = parse_llm_json(content)
+    source: dict[str, Any] = {"by": "ai", "model": llm.get("model_used")}
     if parsed is None:
+        reason = RULEBOOK_REASONS.get(llm.get("error", ""), "LLM reply not in the required format")
+        source = {"by": "rulebook", "reason": reason}
         if content:
             logger.warning(
                 "LLM reply was not usable JSON; using the policy heuristic. Reply began: %r", content[:300]
@@ -108,7 +120,10 @@ def settlement_node(state: AutonomeState) -> AutonomeState:
     # 4. Customer message must agree with the approved offer
     raw_message = parsed.get("message")
     message = raw_message if isinstance(raw_message, str) else ""
-    message = strip_urls(strip_markdown(message)) or approved_offer_message(action, offer, rules)
+    message = strip_urls(strip_markdown(message))
+    if not message:
+        message = approved_offer_message(action, offer, rules)
+        source = {"by": "guardrail", "reason": "reply had no message; stated the approved offer"}
     if action not in NO_PAYMENT_ACTIONS:
         bad = unapproved_amounts(message, legitimate_amounts(rules, original_amount, offer))
         if bad:
@@ -123,6 +138,10 @@ def settlement_node(state: AutonomeState) -> AutonomeState:
                 }
             )
             message = approved_offer_message(action, offer, rules)
+            source = {
+                "by": "guardrail",
+                "reason": "reply named an unapproved amount; stated the approved offer",
+            }
         else:
             checks.append({"id": "message", "label": "Message matches approved offer", "status": "passed",
                            "detail": "Every amount in the reply is an approved figure."})  # fmt: skip
@@ -134,6 +153,7 @@ def settlement_node(state: AutonomeState) -> AutonomeState:
     message = message.replace(TICKET_PLACEHOLDER, "").strip()
 
     state["proposed_offer"] = offer
+    state["reply_source"] = source
     state["guardrail_violations"] = violations
     state["guardrail_status"] = "POLICY_BREACH_CORRECTED" if violations else "PASSED"
 
@@ -167,5 +187,9 @@ def settlement_node(state: AutonomeState) -> AutonomeState:
         # The LLM may have promised the link; restate the offer instead of contradicting it.
         message = f"{approved_offer_message(action, offer, rules)}\n\n{LINK_FAILED_MESSAGE}"
         step = "LINK_FAILED"
+        state["reply_source"] = {
+            "by": "guardrail",
+            "reason": "payment link failed; restated the approved offer",
+        }
     return _finish(state, start, final_response=message, action=action, guardrail_checks=checks, step=step,
                    razorpay_payload=result)  # fmt: skip

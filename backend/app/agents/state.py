@@ -25,6 +25,8 @@ class AutonomeState(TypedDict):
     step: str
     latency_ms: float
     tokens_used: int
+    benchmark: bool  # benchmark turns wait out LLM rate limits; live chat falls back at once
+    reply_source: dict[str, Any]  # who wrote final_response: {"by": ai|rulebook|guardrail, ...}
 
 
 def build_initial_state(
@@ -38,6 +40,7 @@ def build_initial_state(
     invoice_id: str,
     original_amount: float,
     failure_code: str,
+    benchmark: bool = False,
 ) -> AutonomeState:
     return {
         "session_id": session_id,
@@ -62,4 +65,6 @@ def build_initial_state(
         "step": "INIT",
         "latency_ms": 0.0,
         "tokens_used": 0,
+        "benchmark": benchmark,
+        "reply_source": {},
     }

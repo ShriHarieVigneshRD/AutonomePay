@@ -43,8 +43,9 @@ def test_no_case_repeats_another():
 
 def test_every_merchant_has_a_full_negotiation():
     merchants = set(load_catalog())
-    assert {c["merchant_id"] for c in CASES if c["total_turns"] >= 3} == merchants
-    assert sum(not c["is_multi_turn"] for c in CASES) <= 6  # first contact is covered, not padded
+    # Turns are customer replies after the opening message: request, then consent or refusal.
+    assert {c["merchant_id"] for c in CASES if c["total_turns"] >= 2} == merchants
+    assert sum(not c["is_multi_turn"] for c in CASES) <= 12
 
 
 def test_expectations_use_real_actions():

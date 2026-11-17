@@ -19,6 +19,10 @@ ADDED_COLUMNS: dict[str, dict[str, str]] = {
         "split_min_invoice_inr": "NUMERIC(12, 2)",
         "partial_settlement_pct": "NUMERIC(5, 2)",
     },
+    "evaluation_batches": {
+        "case_batch": "INTEGER",
+        "code_version": "VARCHAR(40)",
+    },
     "evaluation_runs": {
         "batch_id": "VARCHAR(64)",
         "invoice_amount": "NUMERIC(12, 2)",

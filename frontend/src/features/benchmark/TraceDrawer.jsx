@@ -6,6 +6,16 @@ import { Stamp } from '../../components/ui/Stamp';
 import { actionLabel, inr, pct, verdictOf } from '../../lib/format';
 import { OUTCOMES, outcomeOf } from './CaseLedger';
 
+/** Who wrote a reply: the LLM (and which model), the backup rulebook or the guardrail (and why). */
+function writtenBy(source) {
+  if (!source) return null;
+  if (source.by === 'ai') {
+    const model = source.model === 'cache' ? 'cached reply' : (source.model ?? '').split('/').pop();
+    return `AI · ${model.replace(':free', '')}`;
+  }
+  return `${source.by === 'rulebook' ? 'Backup rulebook' : 'Guardrail'} · ${source.reason}`;
+}
+
 /** Every turn of one benchmark case, as a side sheet (full screen on mobile). */
 export function TraceDrawer({ row, onClose }) {
   return (
@@ -87,7 +97,16 @@ export function TraceDrawer({ row, onClose }) {
                     </div>
                     <p className="mt-2.5 text-xs text-ink-3">Customer (scripted)</p>
                     <p className="text-ink">{step.user}</p>
-                    <p className="mt-2.5 text-xs text-ink-3">Concierge</p>
+                    <p className="mt-2.5 text-xs text-ink-3">
+                      Concierge
+                      {step.reply_source && (
+                        <span
+                          className={step.reply_source.by === 'rulebook' ? 'text-caution-ink' : undefined}
+                        >
+                          {` · ${writtenBy(step.reply_source)}`}
+                        </span>
+                      )}
+                    </p>
                     <p className="whitespace-pre-wrap text-ink-2">{step.agent}</p>
                     {step.sources?.length > 0 && (
                       <p className="mt-2 text-xs text-ink-3">

@@ -49,6 +49,7 @@ for (const theme of ['light', 'dark']) {
 
     await page.getByRole('link', { name: 'Benchmark' }).click();
     const run = page.getByRole('button', { name: 'Run benchmark', exact: true });
+    await page.getByLabel('Cases to run').selectOption('all');
     if (await run.isEnabled()) await run.click();
     await expect(page.getByRole('progressbar')).toBeHidden({ timeout: 60_000 });
     await expect(run).toBeEnabled({ timeout: 60_000 });
