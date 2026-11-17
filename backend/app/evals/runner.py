@@ -1,4 +1,5 @@
 import logging
+import os
 import time
 import uuid
 from datetime import datetime
@@ -22,7 +23,7 @@ from app.agents.graph import autonomepay_graph
 from app.agents.state import build_initial_state
 from app.core.config import settings
 from app.core.database import EvaluationBatch, EvaluationRun, SessionLocal
-from app.evals.dataset import generate_50_synthetic_cases, score_case
+from app.evals.dataset import BATCH_COUNT, generate_50_synthetic_cases, score_case
 from app.evals.judge import evaluate_rag_triad
 
 logger = logging.getLogger(__name__)
@@ -34,14 +35,17 @@ def run_guardrail_status(run: EvaluationRun) -> str:
     return "POLICY_BREACH_CORRECTED" if run.policy_breach else "PASSED"
 
 
-def create_batch(db: Session, total_cases: int = 50) -> EvaluationBatch:
+def create_batch(db: Session, total_cases: int = 50, case_batch: int | None = None) -> EvaluationBatch:
     count = db.query(EvaluationBatch).count()
+    scope = f"Batch {case_batch} of {BATCH_COUNT}" if case_batch else f"All {total_cases}"
     batch = EvaluationBatch(
         batch_id=f"batch_{uuid.uuid4().hex[:12]}",
-        name=f"Run #{count + 1} ({datetime.now().strftime('%d %b %H:%M')})",
+        name=f"Run #{count + 1} · {scope} ({datetime.now().strftime('%d %b %H:%M')})",
         status="RUNNING",
         total_cases=total_cases,
         completed_cases=0,
+        case_batch=case_batch,
+        code_version=os.environ.get("RENDER_GIT_COMMIT", "")[:7] or None,  # set by Render
     )
     db.add(batch)
     db.commit()
@@ -53,6 +57,13 @@ def compute_kpis(runs: list[EvaluationRun]) -> dict[str, Any]:
     latencies = [float(r.latency_ms) for r in runs if r.latency_ms is not None]
     faithfulness = [float(r.rag_faithfulness) for r in runs if r.rag_faithfulness is not None]
     scored = [r for r in runs if r.passed is not None]
+    # Who wrote each reply (recorded since the batch rework); blocked injections never reach the LLM.
+    replies = [
+        t["reply_source"]
+        for r in runs
+        for t in (r.execution_trace or [])
+        if t.get("reply_source") and t.get("action") != "BLOCKED"
+    ]
     return {
         "total_invoiced": round(sum(float(r.invoice_amount or 0) for r in runs), 2),
         "total_recovered": round(sum(float(r.link_amount or 0) for r in runs), 2),
@@ -63,6 +74,8 @@ def compute_kpis(runs: list[EvaluationRun]) -> dict[str, Any]:
         "avg_latency_ms": round(mean(latencies), 1) if latencies else None,
         "tokens_used": sum(r.tokens_used or 0 for r in runs),
         "pass_rate_pct": round(100 * sum(1 for r in scored if r.passed) / len(scored), 1) if scored else None,
+        "ai_replies": sum(1 for src in replies if src["by"] == "ai") if replies else None,
+        "ai_reply_turns": len(replies) or None,
     }
 
 
@@ -88,6 +101,14 @@ def mark_interrupted_batches() -> None:
         db.commit()
 
 
+def _opening_message(scenario_id: str) -> str:
+    from app.api.scenarios import get_all_50_formatted_scenarios  # the greeting the sandbox shows
+
+    with SessionLocal() as db:
+        scenarios = get_all_50_formatted_scenarios(db)
+    return next((s["initial_message"] for s in scenarios if s["id"] == scenario_id), "")
+
+
 @traceable(name="autonomepay_multi_turn_simulation")
 def run_single_simulation_case(case: dict[str, Any], batch_id: str | None = None) -> dict[str, Any]:
     """Play one scripted multi-turn dialogue through the agent graph and store the run."""
@@ -96,7 +117,9 @@ def run_single_simulation_case(case: dict[str, Any], batch_id: str | None = None
     scenario_id = case.get("scenario_id", "eval_01")
     scenario_type = case.get("scenario_type", "HOTSTAR_BUDGET_FRICTION")
 
-    messages: list[dict[str, str]] = []
+    # Same start as the sandbox: the agent's greeting, which the scripted customer answers.
+    opening = _opening_message(scenario_id)
+    messages: list[dict[str, str]] = [{"role": "assistant", "content": opening}] if opening else []
     execution_trace = []
     final_state: dict[str, Any] = {}
     tokens_used = 0
@@ -114,6 +137,7 @@ def run_single_simulation_case(case: dict[str, Any], batch_id: str | None = None
             invoice_id=case.get("invoice_id", "inv_test"),
             original_amount=case.get("original_amount", 299.00),
             failure_code=case.get("failure_code", "INSUFFICIENT_FUNDS"),
+            benchmark=True,
         )
 
         start_t = time.time()
@@ -133,6 +157,7 @@ def run_single_simulation_case(case: dict[str, Any], batch_id: str | None = None
                 "action": final_state.get("action"),
                 "sources": [s["source"] for s in final_state.get("retrieved_sources", [])],
                 "latency_ms": elapsed,
+                "reply_source": final_state.get("reply_source") or None,
             }
         )
 
@@ -193,12 +218,12 @@ def run_single_simulation_case(case: dict[str, Any], batch_id: str | None = None
 
 
 def execute_batch_evaluation_job(batch_id: str) -> None:
-    """Background worker: run every benchmark case for a batch, updating progress as it goes."""
-    cases = generate_50_synthetic_cases()
+    """Background worker: run the batch's cases (or all of them), updating progress as it goes."""
     with SessionLocal() as db:
         batch = db.get(EvaluationBatch, batch_id)
         if not batch:
             return
+        cases = [c for c in generate_50_synthetic_cases() if batch.case_batch in (None, c["batch"])]
         batch.total_cases = len(cases)
         db.commit()
 

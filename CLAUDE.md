@@ -54,7 +54,7 @@ npm run test:e2e     # Playwright; starts its own offline backend (:8799) and Vi
 - **Styling:** design tokens only (`bg-sheet`, `text-ink-2`, `border-rule/10`, `bg-accent`, `text-settled|caution-ink|void`). Never raw hex or Tailwind palette colours.
   - Status colours are reserved for status and always come with an icon and a label.
   - See `.interface-design/system.md` for the type scale, spacing, radius and motion rules.
-- **Benchmark cases:** add or change them in the `CASES` table of `backend/app/evals/dataset.py` (keep 50; ids `eval_case_01`–`04` are fixed). `tests/test_benchmark_cases.py` rejects repeats, unknown actions, policy-source markers missing from the corpus and amounts the guardrail wouldn't approve. Regenerate the table in `docs/BENCHMARK.md` after changes.
+- **Benchmark cases:** add or change them in the `CASES` table of `backend/app/evals/dataset.py` (keep 50; ids `eval_case_01`–`04` are fixed). `tests/test_benchmark_cases.py` rejects repeats, unknown actions, policy-source markers missing from the corpus and amounts the guardrail wouldn't approve. Regenerate the table in `docs/BENCHMARK.md` after changes. Every script's first line must answer the agent's opening message (the runner sends it first), and a case's batch is fixed by its number (every 5th case).
 - **Bugs:** a fix comes with a regression test (`backend/tests/test_regressions.py` or next to the feature). New features come with tests.
 - **Commits:** small and focused, with conventional prefixes (`feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`).
 

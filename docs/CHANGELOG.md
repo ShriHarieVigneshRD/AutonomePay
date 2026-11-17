@@ -2,6 +2,12 @@
 
 All changes on branch `refactor/restructure-and-improve` (from `457f2fb`, 2026-11-17). Bug and security ids (B…, S…) refer to [ANALYSIS.md](ANALYSIS.md); features (F…, N…) to [ANALYSIS.md](ANALYSIS.md) and [PLAN.md](PLAN.md).
 
+## Benchmark batches (2026-11-17)
+- **Batches of 10.** The free LLM tier allows 50 requests a day, and a full run needs about 85, so the benchmark runs in 5 fixed batches (batch *b* = every 5th case from case *b*). **Latest results**, the new default view, combines each case's most recent result into one 50-case scorecard and shows how much is covered. Running all 50 at once is still possible. Runs store their batch and the deployed commit; both are new columns, added on startup.
+- **Opening message.** Benchmark conversations now start with the agent's greeting, as in the sandbox. Every scripted first line was rewritten to answer it instead of restating that the payment failed. A full run is now 88 customer turns instead of 131.
+- **Rate limits.** During a benchmark run, LLM calls are spaced to stay under 20 a minute, and a rate-limited turn waits (15/30/60 s) and retries instead of falling back to the rulebook. A daily-limit error fails at once. Live chat is unchanged.
+- **Who wrote each reply.** Every turn records whether the LLM (which model), the backup rulebook (why) or the guardrail (why) wrote it. This is shown in the trace drawer and as an **AI-written replies** figure on the scorecard.
+
 ## Settlement prompt (2026-11-17)
 - **The prompt now states the rules the offline engine and guardrail already apply:**
   - offer the plan the customer names;

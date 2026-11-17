@@ -41,7 +41,8 @@ export function outcomeOf(row) {
  * One cell per benchmark case. Outcome is encoded three ways (colour, icon, legend label) so it
  * never depends on colour alone; the results table below is the full table view.
  */
-export function CaseLedger({ rows, total, onOpen }) {
+export function CaseLedger({ rows, total, pendingLabel = OUTCOMES.pending.label, onOpen }) {
+  const labelOf = (key) => (key === 'pending' ? pendingLabel : OUTCOMES[key].label);
   const byId = new Map(rows.map((r) => [r.test_id, r]));
   const ids = Array.from({ length: total }, (_, i) => `eval_case_${String(i + 1).padStart(2, '0')}`);
   const counts = ids.reduce((acc, id) => {
@@ -62,14 +63,14 @@ export function CaseLedger({ rows, total, onOpen }) {
         <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-2" aria-label="Legend">
           {Object.entries(OUTCOMES)
             .filter(([key]) => counts[key])
-            .map(([key, { label, Icon }]) => (
+            .map(([key, { Icon }]) => (
               <li key={key} className="flex items-center gap-1.5">
                 {Icon ? (
                   <Icon className={`h-3.5 w-3.5 ${OUTCOMES[key].tone}`} weight="fill" aria-hidden />
                 ) : (
                   <span className="h-3 w-3 rounded-[3px] border border-dashed border-rule/40" aria-hidden />
                 )}
-                {label} <span className="num text-ink-3">{counts[key]}</span>
+                {labelOf(key)} <span className="num text-ink-3">{counts[key]}</span>
               </li>
             ))}
         </ul>
@@ -79,7 +80,8 @@ export function CaseLedger({ rows, total, onOpen }) {
         {ids.map((id, i) => {
           const row = byId.get(id);
           const outcome = outcomeOf(row);
-          const { label, Icon, cell, tone } = OUTCOMES[outcome];
+          const { Icon, cell, tone } = OUTCOMES[outcome];
+          const label = labelOf(outcome);
           const name = `Case ${i + 1}: ${label}${row ? `, ${actionLabel(row.final_action)}` : ''}`;
           return (
             <li key={id}>

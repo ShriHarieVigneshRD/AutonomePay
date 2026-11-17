@@ -106,6 +106,8 @@ class EvaluationBatch(Base):
     total_cases: Mapped[int | None] = mapped_column(Integer, default=50)
     completed_cases: Mapped[int | None] = mapped_column(Integer, default=0)
     kpis: Mapped[Any | None] = mapped_column(JSON, nullable=True)
+    case_batch: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 1-5; None = all cases
+    code_version: Mapped[str | None] = mapped_column(String(40), nullable=True)  # deployed git commit
     created_at: Mapped[datetime | None] = mapped_column(DateTime, default=utcnow)
 
     runs: Mapped[list["EvaluationRun"]] = relationship(back_populates="batch", cascade="all, delete-orphan")

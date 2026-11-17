@@ -17,7 +17,10 @@ export const api = {
     data(http.post(`/conversations/${encodeURIComponent(id)}/messages`, { content })),
   batches: () => data(http.get('/evals/batches')),
   results: (batchId) => data(http.get('/evals/results', { params: { batch_id: batchId } })),
-  runBenchmark: () => data(http.post('/evals/run')),
+  latestResults: () => data(http.get('/evals/latest')),
+  // caseBatch 1-5 runs that batch of 10 cases; null runs all 50.
+  runBenchmark: (caseBatch = null) =>
+    data(http.post('/evals/run', null, { params: caseBatch ? { batch: caseBatch } : {} })),
   paymentStatus: (linkId) => data(http.get(`/payments/${encodeURIComponent(linkId)}`)),
   simulatePayment: (linkId) => data(http.post(`/payments/${encodeURIComponent(linkId)}/simulate-payment`)),
 };

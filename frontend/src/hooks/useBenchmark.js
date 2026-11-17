@@ -3,10 +3,22 @@ import { api, errorMessage } from '../lib/api';
 
 export const POLL_MS = 2000;
 const MAX_POLL_FAILURES = 3;
+export const LATEST = 'latest'; // the view combining each case's most recent result
+export const BATCH_COUNT = 5;
+
+/** The batch to run next: one never run, else the one run longest ago (`batches` is newest first). */
+export function nextBatch(batches) {
+  const lastRun = (n) => batches.find((b) => b.case_batch === n)?.created_at ?? '';
+  return Array.from({ length: BATCH_COUNT }, (_, i) => i + 1).reduce(
+    (best, n) => (lastRun(n) < lastRun(best) ? n : best),
+    1,
+  );
+}
 
 /**
- * Benchmark runs: list, select, start, and poll the *selected* run while it is RUNNING.
- * Polling resumes when you come back to a running batch and always stops on unmount.
+ * Benchmark runs: list, select, start, and poll the selected view while a run is in progress.
+ * The default view is LATEST (each case's most recent result across runs). Polling resumes when
+ * you come back to a running batch and always stops on unmount.
  */
 export function useBenchmark() {
   const [batches, setBatches] = useState([]);
@@ -29,7 +41,7 @@ export function useBenchmark() {
     () =>
       refreshBatches().then(
         (list) => {
-          setSelectedId((current) => current ?? list[0]?.batch_id ?? null);
+          setSelectedId((current) => current ?? (list.length ? LATEST : null));
           setLoading(false);
         },
         (e) => {
@@ -52,13 +64,14 @@ export function useBenchmark() {
 
     const tick = async () => {
       try {
-        const data = await api.results(selectedId);
+        const latest = selectedId === LATEST;
+        const data = await (latest ? api.latestResults() : api.results(selectedId));
         if (cancelled) return;
         failures = 0;
         setResults(data);
         setError(null);
         refreshBatches().catch(() => {}); // keeps the run list's progress labels current
-        if (data.batch.status === 'RUNNING') timer = setTimeout(tick, POLL_MS);
+        if (latest ? data.running : data.batch.status === 'RUNNING') timer = setTimeout(tick, POLL_MS);
       } catch (e) {
         if (cancelled) return;
         failures += 1;
@@ -79,11 +92,11 @@ export function useBenchmark() {
     setSelectedId(batchId);
   };
 
-  const run = async () => {
+  const run = async (caseBatch = null) => {
     setStarting(true);
     setError(null);
     try {
-      const batch = await api.runBenchmark();
+      const batch = await api.runBenchmark(caseBatch);
       await refreshBatches();
       select(batch.batch_id);
     } catch (e) {

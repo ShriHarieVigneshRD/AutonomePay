@@ -63,7 +63,7 @@ def test_n5_every_case_is_scored_against_an_expectation(client, completed_batch)
     assert all(row["passed"] is not None and row["expected_action"] for row in data["matrix"])
     assert data["kpi"]["pass_rate_pct"] == 100.0  # the offline policy engine meets every expectation
     escalation = next(
-        r for r in data["matrix"] if r["scenario_type"] == "RAZORPAYX_HUMAN_ESCALATION" and r["turns"] == 3
+        r for r in data["matrix"] if r["scenario_type"] == "RAZORPAYX_HUMAN_ESCALATION" and r["turns"] == 2
     )
     assert escalation["final_action"] == "HUMAN_ESCALATION" and escalation["recovered_inr"] == 0
 

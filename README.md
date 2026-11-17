@@ -24,7 +24,7 @@ Built for the Razorpay AI Buildathon. The live demo at [autonome-pay.vercel.app]
 - **Real MCP payments.** Payment tools (`create_payment_link`, `fetch_payment_link`) are called over MCP. The server is either AutonomePay's own (live Razorpay API or a sandbox) or Razorpay's official hosted MCP server.
 - **Payment status loop.** "Check status" asks the provider over MCP. Paid links mark the invoice recovered or partially recovered. Sandbox links open a `/pay/<id>` checkout where a payment can be simulated.
 - **Grounded retrieval.** Curated merchant rules plus dated snapshots of public merchant pages. Ranking is BM25 + dense embeddings fused with reciprocal-rank fusion, then a cross-encoder reranker. Replies cite their sources.
-- **Honest benchmark.** 50 distinct scripted negotiations, each scored automatically against an expected outcome: the right action, link or no link, and where it matters the exact approved amount and the policy passage, often a public-page snapshot, that must have been consulted. See [docs/BENCHMARK.md](docs/BENCHMARK.md). The dashboard shows a hero "covered by payment links" figure, pass rate, guardrail corrections, blocked injections, faithfulness, latency and tokens, plus a 50-cell case ledger.
+- **Honest benchmark.** 50 distinct scripted negotiations, each scored automatically against an expected outcome: the right action, link or no link, and where it matters the exact approved amount and the policy passage, often a public-page snapshot, that must have been consulted. See [docs/BENCHMARK.md](docs/BENCHMARK.md). The dashboard shows a hero "covered by payment links" figure, pass rate, the share of AI-written replies, guardrail corrections, blocked injections, faithfulness, latency and tokens, plus a 50-cell case ledger. Cases run in 5 batches of 10 to fit the free LLM tier, and the Latest results view combines them.
 - **Server-side conversations.** The server keeps the history, so it can't be forged. Conversations survive a reload and can be shared (`?case=…&conversation=…`).
 - **Works offline.** With no API keys it runs a deterministic, merchant-aware policy engine and sandbox payments, which is how the test suites run.
 - **Responsive and accessible.** Phone, tablet and desktop layouts; light and dark themes; native dialogs; keyboard navigation; AA text contrast.
@@ -107,7 +107,7 @@ The frontend needs only `VITE_API_BASE_URL` (empty means the Vite proxy forwards
   - Reply as the customer, or use a suggested reply.
   - Say yes to get a payment link.
   - Open the link and simulate payment (sandbox), then "Check status".
-- **Benchmark (`/benchmark`):** "Run benchmark" plays all 50 scripted dialogues (seconds offline, minutes with an LLM). Click any ledger cell for its full trace.
+- **Benchmark (`/benchmark`):** choose a batch of 10 cases (or all 50) and press "Run benchmark" (seconds offline, minutes with an LLM). Latest results combines the batches. Click any ledger cell for its full trace, including who wrote each reply.
 - **API:** interactive docs at `/docs`. The main endpoints are:
   - `POST /api/conversations`
   - `POST /api/conversations/{id}/messages`
@@ -164,7 +164,7 @@ docs/               ANALYSIS, PLAN, TEST_REPORT, CHANGELOG, screenshots, archive
 ```bash
 # backend
 cd backend
-pytest                    # 175 tests, offline, ~5 s
+pytest                    # 184 tests, offline, ~5 s
 pytest -m slow            # model-backed retrieval test (downloads models once)
 ruff check app tests && ruff format --check app tests && pyright
 

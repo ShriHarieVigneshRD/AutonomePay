@@ -11,7 +11,8 @@ function Stat({ label, value, hint }) {
 }
 
 /** One hero figure (recovered via links) and the supporting measured KPIs. */
-export function StatementStrip({ kpi, totalCases }) {
+export function StatementStrip({ kpi, casesLabel }) {
+  const hasSources = kpi.ai_reply_turns !== null && kpi.ai_reply_turns !== undefined;
   const recoveredShare =
     kpi.total_invoiced && kpi.total_recovered !== undefined
       ? (100 * kpi.total_recovered) / kpi.total_invoiced
@@ -32,12 +33,17 @@ export function StatementStrip({ kpi, totalCases }) {
             {inrShort(kpi.total_recovered)}
           </p>
           <p className="mt-1 text-sm text-ink-2">
-            of {inr(kpi.total_invoiced)} invoiced across {totalCases} cases
+            of {inr(kpi.total_invoiced)} invoiced across {casesLabel}
             {recoveredShare !== null && <span className="text-ink-3"> · {pct(recoveredShare)}</span>}
           </p>
         </div>
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 xl:grid-cols-6">
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
           <Stat label="Pass rate" value={pct(kpi.pass_rate_pct)} hint="vs expected outcome" />
+          <Stat
+            label="AI-written replies"
+            value={hasSources ? `${kpi.ai_replies}/${kpi.ai_reply_turns}` : '—'}
+            hint={hasSources ? 'others: rulebook or guardrail' : undefined}
+          />
           <Stat label="Links issued" value={kpi.links_issued ?? '—'} />
           <Stat
             label="Guardrail corrections"
