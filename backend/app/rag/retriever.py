@@ -5,12 +5,13 @@ RAG_MODE:
 - hybrid:        BM25 + dense embeddings (BAAI/bge-small-en-v1.5), fused with reciprocal-rank fusion
 - hybrid_rerank: hybrid candidates re-scored by a cross-encoder (Xenova/ms-marco-MiniLM-L-6-v2)
 
-Models run locally on ONNX Runtime via fastembed (no PyTorch). If they can't load, retrieval
-degrades to BM25 and logs why, rather than failing requests.
+Models run locally on ONNX Runtime via fastembed (no PyTorch). If they can't load, or the container
+has under 1 GB of memory (e.g. Render's free tier), retrieval uses BM25 and logs why.
 """
 
 import logging
 import re
+from pathlib import Path
 
 import numpy as np
 from rank_bm25 import BM25Okapi
@@ -28,6 +29,9 @@ CANDIDATES = 10  # per ranker, before fusion
 EMBED_BATCH = 8
 RRF_K = 60
 NOT_FOUND = "No specific merchant policy found."
+# The model modes peak at ~555-700 MB; under this container limit they get the server OOM-killed.
+MODEL_MEMORY_FLOOR = 1024**3
+CGROUP_MEMORY_FILES = ("/sys/fs/cgroup/memory.max", "/sys/fs/cgroup/memory/memory.limit_in_bytes")
 
 _STOPWORDS = set(
     [
@@ -84,10 +88,29 @@ def reciprocal_rank_fusion(rankings: list[list[int]], k: int = RRF_K) -> list[in
     return sorted(scores, key=lambda idx: scores[idx], reverse=True)
 
 
+def container_memory_limit() -> int | None:
+    """The Linux container (cgroup v2/v1) memory limit in bytes; None if unlimited or not in a container."""
+    for path in CGROUP_MEMORY_FILES:
+        try:
+            value = Path(path).read_text().strip()
+        except OSError:
+            continue
+        return int(value) if value.isdigit() and int(value) < 2**60 else None  # v1 "unlimited" is ~2^63
+    return None
+
+
 class PolicyRetriever:
     def __init__(self, mode: str | None = None):
         self.corpus = load_corpus()
         self.mode = mode or settings.RAG_MODE
+        limit = container_memory_limit()
+        if self.mode != "bm25" and limit and limit < MODEL_MEMORY_FLOOR:
+            logger.warning(
+                "RAG_MODE=%s needs ~0.6-0.7 GB but the memory limit is %d MB; using bm25",
+                self.mode,
+                limit // 2**20,
+            )
+            self.mode = "bm25"
         self._bm25 = {
             m: BM25Okapi([tokenize(c.labelled()) for c in chunks]) for m, chunks in self.corpus.items()
         }
