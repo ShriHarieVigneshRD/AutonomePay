@@ -1,0 +1,600 @@
+{
+  "_comment": "Single source of truth for merchant configuration. Limits, split and partial-settlement rules are simulated internal merchant settings (companies do not publish these). Plans and prices follow the policy documents in app/rag/policies. Synced into the database on every startup.",
+  "merchants": [
+    {
+      "merchant_id": "hotstar",
+      "name": "Disney+ Hotstar",
+      "category": "OTT Entertainment",
+      "policy_doc": "01_hotstar_policy.md",
+      "max_discount_inr": 20.0,
+      "max_discount_pct": 6.69,
+      "max_grace_days": 3,
+      "auto_escalation_limit": 5000,
+      "plans": [
+        {
+          "name": "Mobile Plan",
+          "price_inr": 149,
+          "period": "quarter"
+        },
+        {
+          "name": "Super Plan",
+          "price_inr": 299,
+          "period": "quarter"
+        },
+        {
+          "name": "Premium Plan",
+          "price_inr": 499,
+          "period": "quarter"
+        },
+        {
+          "name": "Premium Plan (Annual)",
+          "price_inr": 1499,
+          "period": "year"
+        }
+      ],
+      "demo_customer": "Aarav Sharma",
+      "demo_invoices": [
+        {
+          "plan_name": "Super Plan",
+          "amount": 299
+        },
+        {
+          "plan_name": "Premium Plan",
+          "amount": 499
+        },
+        {
+          "plan_name": "Premium Plan (Annual)",
+          "amount": 1499
+        }
+      ],
+      "public_sources": [
+        {
+          "title": "JioHotstar help centre",
+          "url": "https://help.jiohotstar.com/in/en/support/home"
+        }
+      ]
+    },
+    {
+      "merchant_id": "netflix_india",
+      "name": "Netflix India",
+      "category": "OTT Streaming",
+      "policy_doc": "02_netflix_india_policy.md",
+      "max_discount_inr": 0.0,
+      "max_discount_pct": 0.0,
+      "max_grace_days": 2,
+      "auto_escalation_limit": 10000,
+      "plans": [
+        {
+          "name": "Mobile",
+          "price_inr": 149,
+          "period": "month"
+        },
+        {
+          "name": "Basic",
+          "price_inr": 199,
+          "period": "month"
+        },
+        {
+          "name": "Standard",
+          "price_inr": 499,
+          "period": "month"
+        },
+        {
+          "name": "Premium",
+          "price_inr": 649,
+          "period": "month"
+        }
+      ],
+      "demo_customer": "Neha Kapoor",
+      "demo_invoices": [
+        {
+          "plan_name": "Premium",
+          "amount": 649
+        },
+        {
+          "plan_name": "Standard",
+          "amount": 499
+        }
+      ],
+      "public_sources": [
+        {
+          "title": "Netflix plans and pricing",
+          "url": "https://help.netflix.com/en/node/24926"
+        },
+        {
+          "title": "How to cancel Netflix",
+          "url": "https://help.netflix.com/en/node/407"
+        },
+        {
+          "title": "Netflix payment declined",
+          "url": "https://help.netflix.com/en/node/41049"
+        }
+      ]
+    },
+    {
+      "merchant_id": "amazon_prime",
+      "name": "Amazon Prime",
+      "category": "E-Commerce & Video",
+      "policy_doc": "03_amazon_prime_policy.md",
+      "max_discount_inr": 75.0,
+      "max_discount_pct": 5.0,
+      "max_grace_days": 5,
+      "auto_escalation_limit": 15000,
+      "plans": [
+        {
+          "name": "Prime Monthly",
+          "price_inr": 299,
+          "period": "month"
+        },
+        {
+          "name": "Prime Lite",
+          "price_inr": 799,
+          "period": "year"
+        },
+        {
+          "name": "Prime Annual",
+          "price_inr": 1499,
+          "period": "year"
+        }
+      ],
+      "demo_customer": "Rahul Verma",
+      "demo_invoices": [
+        {
+          "plan_name": "Prime Annual",
+          "amount": 1499
+        },
+        {
+          "plan_name": "Prime Monthly",
+          "amount": 299
+        }
+      ],
+      "public_sources": [
+        {
+          "title": "Amazon Prime membership fee",
+          "url": "https://www.amazon.in/gp/help/customer/display.html?nodeId=G34EUPKVMYFW8N4A"
+        }
+      ]
+    },
+    {
+      "merchant_id": "spotify_india",
+      "name": "Spotify India",
+      "category": "Audio Streaming",
+      "policy_doc": "04_spotify_india_policy.md",
+      "max_discount_inr": 15.0,
+      "max_discount_pct": 0.0,
+      "max_grace_days": 7,
+      "auto_escalation_limit": 5000,
+      "plans": [
+        {
+          "name": "Student",
+          "price_inr": 59,
+          "period": "month"
+        },
+        {
+          "name": "Individual",
+          "price_inr": 119,
+          "period": "month"
+        },
+        {
+          "name": "Duo",
+          "price_inr": 149,
+          "period": "month"
+        },
+        {
+          "name": "Family",
+          "price_inr": 179,
+          "period": "month"
+        }
+      ],
+      "demo_customer": "Ananya Roy",
+      "demo_invoices": [
+        {
+          "plan_name": "Duo",
+          "amount": 149
+        },
+        {
+          "plan_name": "Family",
+          "amount": 179
+        }
+      ],
+      "public_sources": [
+        {
+          "title": "Spotify Premium plans India",
+          "url": "https://www.spotify.com/in-en/premium/"
+        },
+        {
+          "title": "Spotify failed payments",
+          "url": "https://support.spotify.com/in-en/article/failed-payments/"
+        },
+        {
+          "title": "Cancel Spotify Premium",
+          "url": "https://support.spotify.com/in-en/article/cancel-premium/"
+        }
+      ]
+    },
+    {
+      "merchant_id": "airtel_postpaid",
+      "name": "Airtel Postpaid",
+      "category": "Telecom",
+      "policy_doc": "05_airtel_postpaid_policy.md",
+      "max_discount_inr": 100.0,
+      "max_discount_pct": 10.0,
+      "max_grace_days": 3,
+      "auto_escalation_limit": 20000,
+      "plans": [
+        {
+          "name": "Family Plan 999",
+          "price_inr": 999,
+          "period": "month"
+        }
+      ],
+      "demo_customer": "Rajesh Kumar",
+      "demo_invoices": [
+        {
+          "plan_name": "Family Plan 999",
+          "amount": 999
+        }
+      ],
+      "public_sources": [
+        {
+          "title": "Airtel postpaid plans",
+          "url": "https://www.airtel.in/postpaid-plans"
+        }
+      ]
+    },
+    {
+      "merchant_id": "jio_fiber",
+      "name": "JioFiber",
+      "category": "Broadband Internet",
+      "policy_doc": "06_jio_fiber_policy.md",
+      "max_discount_inr": 0.0,
+      "max_discount_pct": 0.0,
+      "max_grace_days": 3,
+      "auto_escalation_limit": 15000,
+      "plans": [
+        {
+          "name": "Fiber 100 Mbps",
+          "price_inr": 699,
+          "period": "month"
+        }
+      ],
+      "demo_customer": "Siddharth Malhotra",
+      "demo_invoices": [
+        {
+          "plan_name": "Fiber 100 Mbps",
+          "amount": 699
+        }
+      ],
+      "public_sources": [
+        {
+          "title": "JioFiber plans",
+          "url": "https://www.jio.com/selfcare/plans/fiber/fiber-postpaid-plans-home/"
+        }
+      ]
+    },
+    {
+      "merchant_id": "swiggy_one",
+      "name": "Swiggy One",
+      "category": "Food & Delivery",
+      "policy_doc": "07_swiggy_one_policy.md",
+      "max_discount_inr": 30.0,
+      "max_discount_pct": 10.0,
+      "max_grace_days": 2,
+      "auto_escalation_limit": 5000,
+      "plans": [
+        {
+          "name": "Swiggy One Quarterly",
+          "price_inr": 299,
+          "period": "quarter"
+        },
+        {
+          "name": "Swiggy One Annual",
+          "price_inr": 899,
+          "period": "year"
+        }
+      ],
+      "demo_customer": "Kavya Iyer",
+      "demo_invoices": [
+        {
+          "plan_name": "Swiggy One Annual",
+          "amount": 899
+        },
+        {
+          "plan_name": "Swiggy One Quarterly",
+          "amount": 299
+        }
+      ],
+      "public_sources": [
+        {
+          "title": "Swiggy One FAQs",
+          "url": "https://www.swiggy.com/swiggy-one-faq"
+        }
+      ]
+    },
+    {
+      "merchant_id": "zomato_gold",
+      "name": "Zomato Gold",
+      "category": "Dining & Delivery",
+      "policy_doc": "08_zomato_gold_policy.md",
+      "max_discount_inr": 25.0,
+      "max_discount_pct": 5.0,
+      "max_grace_days": 1,
+      "auto_escalation_limit": 5000,
+      "plans": [
+        {
+          "name": "3-Month Plan",
+          "price_inr": 99,
+          "period": "quarter"
+        },
+        {
+          "name": "1-Year Plan",
+          "price_inr": 299,
+          "period": "year"
+        }
+      ],
+      "demo_customer": "Rohan Gupta",
+      "demo_invoices": [
+        {
+          "plan_name": "1-Year Plan",
+          "amount": 299
+        },
+        {
+          "plan_name": "3-Month Plan",
+          "amount": 99
+        }
+      ],
+      "public_sources": [
+        {
+          "title": "Zomato Gold terms",
+          "url": "https://www.zomato.com/policies/gold-tnc"
+        }
+      ]
+    },
+    {
+      "merchant_id": "notion_saas",
+      "name": "Notion SaaS",
+      "category": "B2B Productivity",
+      "policy_doc": "09_notion_saas_policy.md",
+      "max_discount_inr": 0.0,
+      "max_discount_pct": 0.0,
+      "max_grace_days": 7,
+      "auto_escalation_limit": 100000,
+      "plans": [
+        {
+          "name": "Plus Plan (per seat)",
+          "price_inr": 800,
+          "period": "seat / month"
+        },
+        {
+          "name": "Business Plan (per seat)",
+          "price_inr": 1500,
+          "period": "seat / month"
+        }
+      ],
+      "split_schedule_pct": [
+        50,
+        50
+      ],
+      "split_min_invoice_inr": 10000,
+      "demo_customer": "Rohan Mehta (TechNova Corp)",
+      "demo_invoices": [
+        {
+          "plan_name": "Business Plan (10 seats)",
+          "amount": 15000
+        },
+        {
+          "plan_name": "Business Plan (25 seats)",
+          "amount": 37500
+        },
+        {
+          "plan_name": "Plus Plan (20 seats)",
+          "amount": 16000
+        }
+      ],
+      "public_sources": [
+        {
+          "title": "Notion billing help",
+          "url": "https://www.notion.com/help/upgrade-or-downgrade-your-plan"
+        },
+        {
+          "title": "Notion payment failures",
+          "url": "https://www.notion.com/help/billing-and-payment-info"
+        }
+      ]
+    },
+    {
+      "merchant_id": "slack_workspace",
+      "name": "Slack Workspace",
+      "category": "B2B Collaboration",
+      "policy_doc": "10_slack_workspace_policy.md",
+      "max_discount_inr": 255.0,
+      "max_discount_pct": 3.0,
+      "max_grace_days": 5,
+      "auto_escalation_limit": 50000,
+      "plans": [
+        {
+          "name": "Pro (per user)",
+          "price_inr": 340,
+          "period": "user / month"
+        }
+      ],
+      "demo_customer": "Devendra Shah",
+      "demo_invoices": [
+        {
+          "plan_name": "Pro (25 users)",
+          "amount": 8500
+        },
+        {
+          "plan_name": "Pro (50 users)",
+          "amount": 17000
+        }
+      ],
+      "public_sources": [
+        {
+          "title": "Slack pricing India",
+          "url": "https://slack.com/intl/en-in/pricing"
+        },
+        {
+          "title": "Slack Fair Billing Policy",
+          "url": "https://slack.com/help/articles/218915077-Slacks-Fair-Billing-Policy"
+        }
+      ]
+    },
+    {
+      "merchant_id": "zoho_one",
+      "name": "Zoho One",
+      "category": "B2B SaaS Suite",
+      "policy_doc": "11_zoho_one_policy.md",
+      "max_discount_inr": 500.0,
+      "max_discount_pct": 3.0,
+      "max_grace_days": 10,
+      "auto_escalation_limit": 150000,
+      "plans": [
+        {
+          "name": "All-in-One Enterprise (per employee)",
+          "price_inr": 1500,
+          "period": "employee / year"
+        }
+      ],
+      "demo_customer": "Sunil Bansal",
+      "demo_invoices": [
+        {
+          "plan_name": "All-in-One Enterprise (12 employees)",
+          "amount": 18000
+        },
+        {
+          "plan_name": "All-in-One Enterprise (30 employees)",
+          "amount": 45000
+        }
+      ],
+      "public_sources": [
+        {
+          "title": "Zoho One pricing",
+          "url": "https://www.zoho.com/one/pricing.html"
+        }
+      ]
+    },
+    {
+      "merchant_id": "jira_atlassian",
+      "name": "Jira Atlassian",
+      "category": "Developer Tools",
+      "policy_doc": "12_jira_atlassian_policy.md",
+      "max_discount_inr": 0.0,
+      "max_discount_pct": 0.0,
+      "max_grace_days": 14,
+      "auto_escalation_limit": 200000,
+      "plans": [
+        {
+          "name": "Cloud Premium (per user)",
+          "price_inr": 980,
+          "period": "user / month"
+        }
+      ],
+      "demo_customer": "Tanya Saxena",
+      "demo_invoices": [
+        {
+          "plan_name": "Cloud Premium (25 users)",
+          "amount": 24500
+        },
+        {
+          "plan_name": "Cloud Premium (60 users)",
+          "amount": 58800
+        }
+      ],
+      "public_sources": [
+        {
+          "title": "Atlassian cloud billing FAQ",
+          "url": "https://www.atlassian.com/licensing/cloud"
+        },
+        {
+          "title": "Jira pricing",
+          "url": "https://www.atlassian.com/software/jira/pricing"
+        }
+      ]
+    },
+    {
+      "merchant_id": "quickkart_b2b",
+      "name": "QuickKart B2B",
+      "category": "Wholesale Supply",
+      "policy_doc": "13_quickkart_b2b_policy.md",
+      "max_discount_inr": 2550.0,
+      "max_discount_pct": 3.0,
+      "max_grace_days": 7,
+      "auto_escalation_limit": 500000,
+      "plans": [],
+      "partial_settlement_pct": 80,
+      "demo_customer": "Vikram Enterprises",
+      "demo_invoices": [
+        {
+          "plan_name": "Inventory Supply Batch #44",
+          "amount": 85000
+        },
+        {
+          "plan_name": "Inventory Supply Batch #51",
+          "amount": 42000
+        },
+        {
+          "plan_name": "Inventory Supply Batch #58",
+          "amount": 120000
+        }
+      ],
+      "public_sources": []
+    },
+    {
+      "merchant_id": "udaan_wholesale",
+      "name": "Udaan Wholesale",
+      "category": "B2B Logistics",
+      "policy_doc": "14_udaan_wholesale_policy.md",
+      "max_discount_inr": 2000.0,
+      "max_discount_pct": 2.0,
+      "max_grace_days": 5,
+      "auto_escalation_limit": 1000000,
+      "plans": [],
+      "split_schedule_pct": [
+        40,
+        60
+      ],
+      "split_min_invoice_inr": 50000,
+      "demo_customer": "Mahavir Stores",
+      "demo_invoices": [
+        {
+          "plan_name": "Bulk Traders Order #7712",
+          "amount": 64000
+        },
+        {
+          "plan_name": "Bulk Traders Order #7790",
+          "amount": 120000
+        }
+      ],
+      "public_sources": []
+    },
+    {
+      "merchant_id": "razorpayx_payroll",
+      "name": "RazorpayX Payroll",
+      "category": "Fintech & Payroll",
+      "policy_doc": "15_razorpayx_payroll_policy.md",
+      "max_discount_inr": 0.0,
+      "max_discount_pct": 0.0,
+      "max_grace_days": 5,
+      "auto_escalation_limit": 2000000,
+      "plans": [],
+      "demo_customer": "Apex Global Solutions",
+      "demo_invoices": [
+        {
+          "plan_name": "Automated Payroll Pro (250 employees)",
+          "amount": 25000
+        },
+        {
+          "plan_name": "Automated Payroll Pro (500 employees)",
+          "amount": 48000
+        }
+      ],
+      "public_sources": [
+        {
+          "title": "RazorpayX Payroll pricing",
+          "url": "https://razorpay.com/payroll/pricing/"
+        }
+      ]
+    }
+  ]
+}

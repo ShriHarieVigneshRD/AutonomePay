@@ -1,103 +1,158 @@
-import os
+"""Per-merchant policy retrieval.
+
+RAG_MODE:
+- bm25:          keyword ranking only (no models; used by tests and as the fallback)
+- hybrid:        BM25 + dense embeddings (BAAI/bge-small-en-v1.5), fused with reciprocal-rank fusion
+- hybrid_rerank: hybrid candidates re-scored by a cross-encoder (Xenova/ms-marco-MiniLM-L-6-v2)
+
+Models run locally on ONNX Runtime via fastembed (no PyTorch). If they can't load, retrieval
+degrades to BM25 and logs why, rather than failing requests.
+"""
+
+import logging
 import re
-from typing import List, Dict, Any
 
-try:
-    from rank_bm25 import BM25Okapi
-except ImportError:
-    BM25Okapi = None
+import numpy as np
+from rank_bm25 import BM25Okapi
 
-try:
-    from sentence_transformers import SentenceTransformer
-    EMBEDDING_MODEL = SentenceTransformer("all-MiniLM-L6-v2")
-except Exception:
-    EMBEDDING_MODEL = None
+from app.core.config import settings
+from app.rag.chunking import Chunk, load_corpus
 
-DOCUMENTS_DIR = os.path.join(os.path.dirname(__file__), "documents")
+logger = logging.getLogger(__name__)
+
+EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
+RERANK_MODEL = "Xenova/ms-marco-MiniLM-L-6-v2"
+CANDIDATES = 10  # per ranker, before fusion
+# Small batches: ONNX Runtime's memory arena grows to the largest batch it has seen (batch 256 peaked at
+# ~2 GB; batch 8 at ~350 MB).
+EMBED_BATCH = 8
+RRF_K = 60
+NOT_FOUND = "No specific merchant policy found."
+
+_STOPWORDS = set(
+    [
+        "a",
+        "an",
+        "the",
+        "and",
+        "or",
+        "of",
+        "to",
+        "for",
+        "in",
+        "on",
+        "at",
+        "by",
+        "with",
+        "is",
+        "are",
+        "was",
+        "be",
+        "can",
+        "i",
+        "my",
+        "me",
+        "we",
+        "our",
+        "you",
+        "your",
+        "it",
+        "this",
+        "that",
+        "do",
+        "does",
+        "please",
+        "would",
+        "could",
+        "should",
+        "will",
+        "what",
+        "how",
+    ]
+)
+
+
+def tokenize(text: str) -> list[str]:
+    return [t for t in re.findall(r"[a-z0-9]+", text.lower()) if t not in _STOPWORDS]
+
+
+def reciprocal_rank_fusion(rankings: list[list[int]], k: int = RRF_K) -> list[int]:
+    scores: dict[int, float] = {}
+    for ranking in rankings:
+        for rank, idx in enumerate(ranking):
+            scores[idx] = scores.get(idx, 0.0) + 1.0 / (k + rank + 1)
+    return sorted(scores, key=lambda idx: scores[idx], reverse=True)
+
 
 class PolicyRetriever:
-    def __init__(self, docs_dir: str = DOCUMENTS_DIR):
-        self.docs_dir = docs_dir
-        self.tenant_chunks: Dict[str, List[Dict[str, Any]]] = {}
-        self._load_documents()
+    def __init__(self, mode: str | None = None):
+        self.corpus = load_corpus()
+        self.mode = mode or settings.RAG_MODE
+        self._bm25 = {
+            m: BM25Okapi([tokenize(c.labelled()) for c in chunks]) for m, chunks in self.corpus.items()
+        }
+        self._embedder = None
+        self._reranker = None
+        self._vectors: dict[str, np.ndarray] = {}
+        if self.mode != "bm25":
+            self._load_models()
 
-    def _load_documents(self):
-        if not os.path.exists(self.docs_dir):
-            return
+    @property
+    def tenant_chunks(self) -> dict[str, list[Chunk]]:
+        return self.corpus
 
-        for filename in os.listdir(self.docs_dir):
-            if filename.endswith(".md"):
-                filepath = os.path.join(self.docs_dir, filename)
-                with open(filepath, "r", encoding="utf-8") as f:
-                    content = f.read()
+    def _load_models(self) -> None:
+        try:
+            from fastembed import TextEmbedding
+            from fastembed.rerank.cross_encoder import TextCrossEncoder
 
-                # Extract merchant_id from doc or filename
-                merchant_match = re.search(r"Merchant ID: `([^`]+)`", content)
-                if merchant_match:
-                    merchant_id = merchant_match.group(1)
-                else:
-                    # fallback to filename slug prefix (e.g. 01_hotstar_policy.md -> hotstar)
-                    merchant_id = filename.split("_")[1]
+            self._embedder = TextEmbedding(
+                EMBEDDING_MODEL, cache_dir=settings.MODEL_CACHE_DIR, threads=settings.RAG_THREADS
+            )
+            for merchant_id, chunks in self.corpus.items():
+                self._vectors[merchant_id] = self._normalise(
+                    np.array(
+                        list(self._embedder.embed([c.labelled() for c in chunks], batch_size=EMBED_BATCH))
+                    )
+                )
+            if self.mode == "hybrid_rerank":
+                self._reranker = TextCrossEncoder(
+                    RERANK_MODEL, cache_dir=settings.MODEL_CACHE_DIR, threads=settings.RAG_THREADS
+                )
+        except Exception:
+            logger.exception("Dense retrieval models unavailable; falling back to BM25")
+            self.mode, self._embedder, self._reranker, self._vectors = "bm25", None, None, {}
 
-                # Chunk document by headers or double newlines
-                chunks = self._chunk_text(content)
-                self.tenant_chunks[merchant_id] = chunks
+    @staticmethod
+    def _normalise(vectors: np.ndarray) -> np.ndarray:
+        return vectors / np.clip(np.linalg.norm(vectors, axis=-1, keepdims=True), 1e-12, None)
 
-    def _chunk_text(self, text: str) -> List[Dict[str, Any]]:
-        raw_sections = text.split("## ")
-        chunks = []
-        for i, sec in enumerate(raw_sections):
-            if not sec.strip():
-                continue
-            section_title = sec.split("\n")[0].replace("#", "").strip()
-            content = "## " + sec if i > 0 else sec
-            chunks.append({
-                "chunk_id": i,
-                "title": section_title,
-                "text": content.strip()
-            })
-        return chunks
-
-    def retrieve_context(self, merchant_id: str, query: str, top_k: int = 2) -> List[str]:
-        """
-        Retrieve relevant policy chunks for a specific merchant_id using hybrid BM25 + dense search.
-        """
-        chunks = self.tenant_chunks.get(merchant_id, [])
+    def search(self, merchant_id: str, query: str, top_k: int = 3) -> list[tuple[Chunk, float]]:
+        chunks = self.corpus.get(merchant_id)
         if not chunks:
-            # Fallback search across all docs or return default string
-            return ["No specific merchant policy found."]
+            return []
+        bm25_scores = self._bm25[merchant_id].get_scores(tokenize(query))
+        rankings = [[int(i) for i in np.argsort(-bm25_scores)[:CANDIDATES]]]
+        if self._embedder is not None:
+            query_vec = self._normalise(np.array(list(self._embedder.embed([query])))[0])
+            dense = self._vectors[merchant_id] @ query_vec
+            rankings.append([int(i) for i in np.argsort(-dense)[:CANDIDATES]])
 
-        # BM25 Keyword Search
-        tokenized_corpus = [c["text"].lower().split() for c in chunks]
-        tokenized_query = query.lower().split()
+        candidates = reciprocal_rank_fusion(rankings)[: max(top_k, 8)]
+        if self._reranker is not None:
+            scores = list(
+                self._reranker.rerank(
+                    query, [chunks[i].labelled() for i in candidates], batch_size=EMBED_BATCH
+                )
+            )
+            ranked = sorted(zip(candidates, scores, strict=True), key=lambda pair: pair[1], reverse=True)
+        else:
+            ranked = [(i, float(bm25_scores[i])) for i in candidates]
+        return [(chunks[i], float(score)) for i, score in ranked[:top_k]]
 
-        bm25_scores = []
-        if BM25Okapi and tokenized_corpus:
-            bm25 = BM25Okapi(tokenized_corpus)
-            bm25_scores = bm25.get_scores(tokenized_query)
+    def retrieve_context(self, merchant_id: str, query: str, top_k: int = 2) -> list[str]:
+        hits = self.search(merchant_id, query, top_k)
+        return [chunk.labelled() for chunk, _ in hits] or [NOT_FOUND]
 
-        # Dense Embedding Similarity (if sentence-transformers loaded)
-        dense_scores = [0.0] * len(chunks)
-        if EMBEDDING_MODEL:
-            try:
-                query_emb = EMBEDDING_MODEL.encode(query, convert_to_tensor=True)
-                doc_embs = EMBEDDING_MODEL.encode([c["text"] for c in chunks], convert_to_tensor=True)
-                from sentence_transformers import util
-                sims = util.cos_sim(query_emb, doc_embs)[0].tolist()
-                dense_scores = sims
-            except Exception:
-                pass
-
-        # Combine Scores
-        combined_results = []
-        for idx, chunk in enumerate(chunks):
-            bm25_score = bm25_scores[idx] if idx < len(bm25_scores) else 0.0
-            dense_score = dense_scores[idx] if idx < len(dense_scores) else 0.0
-            # Weighted hybrid score
-            final_score = (0.4 * bm25_score) + (0.6 * dense_score)
-            combined_results.append((final_score, chunk["text"]))
-
-        combined_results.sort(key=lambda x: x[0], reverse=True)
-        return [text for score, text in combined_results[:top_k]]
 
 retriever = PolicyRetriever()
