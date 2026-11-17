@@ -7,6 +7,7 @@ from helpers import chat_body
 
 from app.evals.retrieval_eval import evaluate, is_relevant, load_qrels
 from app.rag import ingest
+from app.rag import retriever as retriever_module
 from app.rag.chunking import load_corpus, parse_front_matter
 from app.rag.retriever import PolicyRetriever, reciprocal_rank_fusion, retriever
 
@@ -61,6 +62,28 @@ def test_dense_retrieval_beats_keywords():
     hybrid = evaluate(PolicyRetriever("hybrid_rerank"), qrels)
     assert hybrid["mode"] == "hybrid_rerank", "models failed to load"
     assert hybrid["hit@1"] > keyword["hit@1"] and hybrid["mrr@10"] > keyword["mrr@10"]
+
+
+@pytest.mark.parametrize(
+    ("content", "expected"),
+    [
+        ("536870912\n", 536870912),
+        ("max\n", None),
+        ("9223372036854771712\n", None),
+    ],  # v2 limit, v2/v1 unlimited
+)
+def test_container_memory_limit_reads_cgroup(monkeypatch, tmp_path, content, expected):
+    path = tmp_path / "memory.max"
+    path.write_text(content)
+    monkeypatch.setattr(retriever_module, "CGROUP_MEMORY_FILES", (str(tmp_path / "missing"), str(path)))
+    assert retriever_module.container_memory_limit() == expected
+
+
+def test_small_containers_fall_back_to_bm25_instead_of_loading_models(monkeypatch):
+    # Render's free tier has 512 MB; loading the models there got the server OOM-killed.
+    monkeypatch.setattr(retriever_module, "container_memory_limit", lambda: 512 * 2**20)
+    monkeypatch.setattr(PolicyRetriever, "_load_models", lambda self: pytest.fail("models loaded"))
+    assert PolicyRetriever("hybrid_rerank").mode == "bm25"
 
 
 def test_unknown_merchant_has_no_policy():

@@ -164,7 +164,7 @@ docs/               ANALYSIS, PLAN, TEST_REPORT, CHANGELOG, screenshots, archive
 ```bash
 # backend
 cd backend
-pytest                    # 168 tests, offline, ~5 s
+pytest                    # 172 tests, offline, ~5 s
 pytest -m slow            # model-backed retrieval test (downloads models once)
 ruff check app tests && ruff format --check app tests && pyright
 

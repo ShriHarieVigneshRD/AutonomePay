@@ -2,6 +2,9 @@
 
 All changes on branch `refactor/restructure-and-improve` (from `457f2fb`, 2026-11-17). Bug and security ids (B…, S…) refer to [ANALYSIS.md](ANALYSIS.md); features (F…, N…) to [ANALYSIS.md](ANALYSIS.md) and [PLAN.md](PLAN.md).
 
+## Deploy fix (2026-11-17)
+- **Render out of memory:** a Render service created by hand ignores `render.yaml`, so it ran the default `hybrid_rerank` (~700 MB) on a 512 MB instance and was killed. The retriever now reads the container's memory limit and uses `bm25` below 1 GB, whatever `RAG_MODE` says.
+
 ## Benchmark rebuilt (2026-11-17, after the web policy ingest)
 - **Removed 31 cases:** 24 exact repeats (same merchant and script, only the invoice amount changed), and 7 of 9 identical single-turn "payment failed" cases.
 - **Added 31 cases:** 13 grounded in the fetched public pages (Netflix, Spotify, Slack, Jira, RazorpayX) and in unexercised policy rules, plus 18 guardrail and conversation edge cases. The full catalogue is in [BENCHMARK.md](BENCHMARK.md).
