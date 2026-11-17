@@ -1,10 +1,11 @@
 services:
   - type: web
     name: autonomepay-backend
-    env: python
+    runtime: python
     rootDir: backend
     buildCommand: "pip install -r requirements.txt"
     startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: /
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
@@ -18,3 +19,21 @@ services:
         value: openrouter/nvidia/nemotron-3-ultra-550b-a55b:free
       - key: FALLBACK_MODEL
         value: openrouter/openrouter/free
+      # Measured memory: bm25 ~290 MB, hybrid ~555 MB, hybrid_rerank ~700 MB.
+      # The free 512 MB instance only fits bm25; use hybrid_rerank on a ~1 GB instance.
+      - key: RAG_MODE
+        value: bm25
+      - key: RAZORPAY_MCP_MODE
+        value: embedded
+      - key: CORS_ORIGINS
+        value: https://autonome-pay.vercel.app
+      - key: PUBLIC_APP_URL
+        value: https://autonome-pay.vercel.app
+      # Set in the Render dashboard (secrets): OPENROUTER_API_KEY, RAZORPAY_KEY_ID,
+      # RAZORPAY_KEY_SECRET, optionally LANGCHAIN_API_KEY and ADMIN_TOKEN.
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false

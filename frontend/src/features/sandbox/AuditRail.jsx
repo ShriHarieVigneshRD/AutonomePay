@@ -35,28 +35,53 @@ function Step({ index, title, children, last = false }) {
   );
 }
 
-function PolicyPassages({ chunks }) {
-  if (!chunks?.length) return <p className="text-ink-3">No policy passages retrieved.</p>;
+const KIND_LABELS = { policy: 'Merchant rule', web: 'Public page', limits: 'Enforced limit' };
+
+function PolicyPassages({ chunks, sources = [] }) {
+  if (!chunks?.length || chunks[0] === 'No specific merchant policy found.') {
+    return <p className="text-ink-3">No policy passages retrieved.</p>;
+  }
   return (
-    <ul className="space-y-1.5">
+    <ol className="space-y-1.5">
       {chunks.map((chunk, i) => {
-        const [first, ...rest] = chunk.split('\n').filter(Boolean);
+        const source = sources[i];
+        const [heading, ...lines] = chunk.split('\n');
+        const body = lines.join('\n');
         return (
-          <li key={i}>
+          <li key={source?.id ?? i}>
             <details className="group rounded-control border border-rule/10 bg-well/60">
-              <summary className="cursor-pointer list-none px-2.5 py-1.5 text-xs text-ink-2 marker:hidden">
-                <span className="mr-1.5 text-ink-4 group-open:hidden">+</span>
-                <span className="mr-1.5 hidden text-ink-4 group-open:inline">−</span>
-                {first.replace(/^#+\s*/, '')}
+              <summary className="cursor-pointer list-none px-2.5 py-1.5 text-xs marker:hidden">
+                <span className="flex items-baseline gap-1.5">
+                  <span className="num font-mono text-ink-4">S{i + 1}</span>
+                  <span className="min-w-0 flex-1 text-ink-2">
+                    {source ? `${source.source} › ${source.section}` : heading}
+                  </span>
+                </span>
+                {source && (
+                  <span className="mt-0.5 block pl-6 text-ink-4">
+                    {KIND_LABELS[source.kind] ?? source.kind}
+                    {source.fetched_at ? ` · fetched ${source.fetched_at}` : ''}
+                  </span>
+                )}
               </summary>
-              <p className="whitespace-pre-wrap border-t border-rule/10 px-2.5 py-2 text-xs leading-relaxed text-ink-3">
-                {rest.join('\n')}
-              </p>
+              <div className="border-t border-rule/10 px-2.5 py-2 text-xs leading-relaxed text-ink-3">
+                <p className="whitespace-pre-wrap">{body}</p>
+                {source?.url && (
+                  <a
+                    href={source.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-1.5 inline-block text-accent underline"
+                  >
+                    Open source page
+                  </a>
+                )}
+              </div>
             </details>
           </li>
         );
       })}
-    </ul>
+    </ol>
   );
 }
 
@@ -97,7 +122,7 @@ export function AuditRail({ turn, sending, className = '', ...rest }) {
           <span className="capitalize">{humanIntent(turn.customer_intent)}</span>
         </Step>
         <Step index={2} title={`Policy retrieved (${turn.retrieved_policy_chunks?.length ?? 0})`}>
-          <PolicyPassages chunks={turn.retrieved_policy_chunks} />
+          <PolicyPassages chunks={turn.retrieved_policy_chunks} sources={turn.retrieved_sources} />
         </Step>
         <Step index={3} title="Offer">
           {turn.action === 'BLOCKED' ? (

@@ -32,3 +32,6 @@ frontend/playwright-report/
 .pytest_cache/
 .ruff_cache/
 frontend/e2e/.screens/
+
+# Downloaded embedding / reranker models
+backend/.cache/

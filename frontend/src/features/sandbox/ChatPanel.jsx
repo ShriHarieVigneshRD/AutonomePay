@@ -43,6 +43,33 @@ function suggestions(scenario) {
   return list.slice(0, 4);
 }
 
+/** Which policy passages grounded a reply (web pages link to the snapshot's source). */
+function Sources({ sources }) {
+  const unique = [...new Map(sources.map((s) => [s.source, s])).values()];
+  return (
+    <p className="mt-1 max-w-[85%] text-xs text-ink-3">
+      Grounded in{' '}
+      {unique.map((s, i) => (
+        <span key={s.source}>
+          {i > 0 && ' · '}
+          {s.url ? (
+            <a
+              href={s.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline decoration-rule/40 hover:text-ink"
+            >
+              {s.source}
+            </a>
+          ) : (
+            s.source
+          )}
+        </span>
+      ))}
+    </p>
+  );
+}
+
 const NOTES = {
   HUMAN_ESCALATION: [UserCircleCheck, 'Escalated to a human specialist · no payment requested'],
   GRACEFUL_DISCONTINUATION: [Handshake, 'Cancellation respected · no payment requested'],
@@ -124,6 +151,9 @@ export function ChatPanel({ scenario, conversation, className = '', ...rest }) {
               >
                 <RichText text={text} />
               </div>
+              {message.meta?.retrieved_sources?.length > 0 && (
+                <Sources sources={message.meta.retrieved_sources} />
+              )}
               {message.meta && (
                 <>
                   <SettlementSlip turn={message.meta} scenario={scenario} fresh={message.meta === lastMeta} />

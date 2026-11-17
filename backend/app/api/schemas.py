@@ -40,6 +40,7 @@ class ChatResponse(BaseModel):
     guardrail_violations: list[str]
     guardrail_checks: list[GuardrailCheck] = []
     retrieved_policy_chunks: list[str]
+    retrieved_sources: list[dict[str, Any]] = []
     proposed_offer: dict[str, Any]
     razorpay_payload: dict[str, Any] | None
     action: str | None = None

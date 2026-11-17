@@ -30,6 +30,12 @@ class Settings(BaseSettings):
     LLM_MAX_TOKENS: int = 800
     MAX_SESSION_TOKEN_BUDGET: int = 6000
 
+    # Policy retrieval: bm25 | hybrid | hybrid_rerank (see app/rag/retriever.py)
+    RAG_MODE: Literal["bm25", "hybrid", "hybrid_rerank"] = "hybrid_rerank"
+    RAG_TOP_K: int = 3
+    MODEL_CACHE_DIR: str = ".cache/models"
+    RAG_THREADS: int = 2  # ONNX Runtime threads for the embedding / reranker models
+
     # LangSmith (optional)
     LANGCHAIN_API_KEY: str = ""
     LANGCHAIN_TRACING_V2: bool = True

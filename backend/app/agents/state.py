@@ -14,6 +14,7 @@ class AutonomeState(TypedDict):
     failure_code: str
     customer_intent: str
     retrieved_policy_chunks: list[str]
+    retrieved_sources: list[dict[str, Any]]
     guardrail_status: str
     guardrail_violations: list[str]
     guardrail_checks: list[dict[str, str]]
@@ -50,6 +51,7 @@ def build_initial_state(
         "failure_code": failure_code,
         "customer_intent": "",
         "retrieved_policy_chunks": [],
+        "retrieved_sources": [],
         "guardrail_status": "PASSED",
         "guardrail_violations": [],
         "guardrail_checks": [],

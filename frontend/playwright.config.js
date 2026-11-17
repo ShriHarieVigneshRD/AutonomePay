@@ -57,6 +57,7 @@ export default defineConfig({
         CORS_ORIGINS: `http://localhost:${FRONTEND_PORT}`,
         PUBLIC_APP_URL: `http://localhost:${FRONTEND_PORT}`,
         RAZORPAY_MCP_MODE: 'embedded',
+        RAG_MODE: 'bm25', // model-backed retrieval is covered by the backend's slow test
       },
     },
     {

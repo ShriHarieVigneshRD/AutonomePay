@@ -59,6 +59,7 @@ def run_turn(
         guardrail_violations=final_state["guardrail_violations"],
         guardrail_checks=final_state.get("guardrail_checks", []),
         retrieved_policy_chunks=final_state["retrieved_policy_chunks"],
+        retrieved_sources=final_state.get("retrieved_sources", []),
         proposed_offer=final_state["proposed_offer"],
         razorpay_payload=final_state["razorpay_payload"],
         action=final_state.get("action"),

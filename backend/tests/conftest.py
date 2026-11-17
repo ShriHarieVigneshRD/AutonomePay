@@ -27,6 +27,7 @@ os.environ.update(
         "CHAT_RATE_LIMIT_PER_MIN": "100000",
         "ADMIN_TOKEN": "",
         "RAZORPAY_MCP_MODE": "embedded",
+        "RAG_MODE": "bm25",  # model-backed modes are covered by tests marked slow
         "PUBLIC_APP_URL": "http://localhost:5173",
     }
 )

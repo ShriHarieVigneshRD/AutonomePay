@@ -5,13 +5,14 @@ requires-python = ">=3.11"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q --strict-markers"
+addopts = "-q --strict-markers -m \"not slow\""
 markers = [
     "slow: loads embedding/reranker models or runs the full 50-case benchmark",
 ]
 filterwarnings = [
     "ignore::DeprecationWarning",
     "ignore::PendingDeprecationWarning",
+    "ignore:SOCKS support in urllib3:Warning",
 ]
 
 [tool.ruff]
