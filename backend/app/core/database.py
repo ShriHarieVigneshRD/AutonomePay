@@ -136,7 +136,7 @@ class EvaluationRun(Base):
     latency_ms: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
     tokens_used: Mapped[int | None] = mapped_column(Integer, nullable=True)
     final_action: Mapped[str | None] = mapped_column(String(40), nullable=True)
-    expected_action: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    expected_action: Mapped[str | None] = mapped_column(String(255), nullable=True)
     passed: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     created_at: Mapped[datetime | None] = mapped_column(DateTime, default=utcnow)
 

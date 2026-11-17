@@ -107,3 +107,21 @@ def test_offline_engine_picks_the_plan_the_customer_named(client):
 
     assert offer("Please switch me to the Basic plan.") == 199.0
     assert offer("Can I move to a cheaper plan?") == 499.0  # unnamed: the priciest cheaper plan
+
+
+def test_case_values_fit_their_database_columns():
+    # PostgreSQL rejects over-long VARCHARs (SQLite doesn't), so check every case-derived value.
+    from app.core.database import Customer, EvaluationRun, Invoice
+
+    limits = {
+        "expected_action": EvaluationRun.__table__.c.expected_action.type.length,
+        "scenario_type": EvaluationRun.__table__.c.scenario_type.type.length,
+        "scenario_id": EvaluationRun.__table__.c.test_id.type.length,
+        "customer_id": Customer.__table__.c.customer_id.type.length,
+        "invoice_id": Invoice.__table__.c.invoice_id.type.length,
+        "plan_name": Invoice.__table__.c.plan_name.type.length,
+        "failure_code": Invoice.__table__.c.failure_code.type.length,
+    }
+    for case in CASES:
+        for field, limit in limits.items():
+            assert len(case[field]) <= limit, (case["scenario_id"], field, len(case[field]), limit)

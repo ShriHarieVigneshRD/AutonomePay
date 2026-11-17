@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     THIRD_MODEL: str = "openrouter/nvidia/nemotron-3.5-super-vl:free"
     FALLBACK_MODEL: str = "openrouter/openrouter/free"
     LLM_MAX_TOKENS: int = 800
-    MAX_SESSION_TOKEN_BUDGET: int = 6000
+    MAX_SESSION_TOKEN_BUDGET: int = 20000  # per conversation; live turns use ~1-2k tokens
 
     # Policy retrieval: bm25 | hybrid | hybrid_rerank (see app/rag/retriever.py)
     RAG_MODE: Literal["bm25", "hybrid", "hybrid_rerank"] = "hybrid_rerank"

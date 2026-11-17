@@ -26,7 +26,7 @@ ADDED_COLUMNS: dict[str, dict[str, str]] = {
         "latency_ms": "NUMERIC(10, 2)",
         "tokens_used": "INTEGER",
         "final_action": "VARCHAR(40)",
-        "expected_action": "VARCHAR(40)",
+        "expected_action": "VARCHAR(255)",
         "passed": "BOOLEAN",
     },
 }

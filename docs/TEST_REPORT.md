@@ -11,7 +11,7 @@
 | Backend lint | `ruff check app tests` | ✅ clean |
 | Backend format | `ruff format --check app tests` | ✅ 71 files formatted |
 | Backend types | `pyright` (basic) | ✅ 0 errors (8 at the start of Phase 4) |
-| Backend tests | `pytest` | ✅ **167 passed** (+1 `slow` model test, also passing with `-m slow`) in ~5 s |
+| Backend tests | `pytest` | ✅ **168 passed** (+1 `slow` model test, also passing with `-m slow`) in ~5 s |
 | Frontend lint | `npm run lint` (ESLint, `--max-warnings 0`) | ✅ clean (was broken: B24) |
 | Frontend format | `npm run format:check` | ✅ clean |
 | Frontend unit | `npm test` (Vitest) | ✅ **19 passed** |
@@ -60,7 +60,7 @@ Every strict xfail now passes as a regression test (`tests/test_regressions.py`)
 | F20 | Runner and scoring | ✅ (+ pass/fail per case) | `test_n5_*`, `test_b28_*` |
 | F21 | LangSmith dataset sync | ✅ local mode | `test_f21_*` |
 | F22 | LangSmith tracing | ⚠️ not exercised (no LangSmith key) | code path unchanged; trace URLs are now real or absent |
-| F23 | PostgreSQL support | ⚠️ not exercised | SQLAlchemy models and additive DDL are portable; only SQLite was run |
+| F23 | PostgreSQL support | ✅ | Upgrade path verified on a throwaway PostgreSQL: original schema built by commit `457f2fb`, then the new code added columns, seeded all 50 cases, ran every flow and the full benchmark, and restarted cleanly. One PostgreSQL-only bug was found and fixed (`expected_action` was VARCHAR(40); labels reach 102 characters). |
 | F24 | Header and navigation | ✅ (routes `/`, `/benchmark`, `/pay/:id`) | e2e flows; responsive "controls on screen" check |
 | F25 | Scenario picker | ✅ (native dialog, keyboard, filters) | e2e "case browser search", `ScenarioPicker.test.js` |
 | F26 | Case file | ✅ (every policy bound) | e2e "first case loads" |
@@ -152,6 +152,6 @@ The original retriever matched only 1 of 15 merchants (B3), so its effective qua
 4. **Stale config to review:** Spotify's live pricing page (₹139 Standard, ₹299 Platinum) differs from the plan prices in `merchants.json`. Spotify's policy text says "no flat discounts" while its limit allows ₹15. Neither was changed automatically.
 5. **Independent labels:** the retrieval labels were written alongside the system, not by an independent annotator.
 6. **Single instance only:** rate limiting and the token-budget/cache state are in-process.
-7. **Persistence on Render:** SQLite on Render's disk is reset on redeploy. Set `DATABASE_URL` to PostgreSQL for persistence (not exercised here).
+7. **Persistence on Render:** SQLite on Render's disk is reset on redeploy; set `DATABASE_URL` to PostgreSQL. PostgreSQL was verified locally, but not against Neon specifically.
 8. **Accessibility** checks are automated (roles, labels, contrast, keyboard paths). No manual screen-reader session was run.
 9. **No CI workflow** is configured; all commands above were run locally.
