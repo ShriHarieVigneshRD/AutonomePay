@@ -12,13 +12,21 @@ export default function App() {
   return (
     <div className="flex h-dvh flex-col">
       <AppHeader path={path} />
-      <main className={`min-h-0 flex-1 ${isBenchmark ? 'scroll-quiet overflow-y-auto' : 'overflow-hidden'}`}>
-        {isBenchmark ? (
-          <BenchmarkView />
-        ) : (
-          <SandboxView scenarios={scenarios} loading={loading} error={error} onRetry={retry} />
-        )}
+      {/* The sandbox stays mounted so a conversation survives a visit to the benchmark. */}
+      <main hidden={isBenchmark} className="min-h-0 flex-1 overflow-hidden">
+        <SandboxView
+          active={!isBenchmark}
+          scenarios={scenarios}
+          loading={loading}
+          error={error}
+          onRetry={retry}
+        />
       </main>
+      {isBenchmark && (
+        <main className="scroll-quiet min-h-0 flex-1 overflow-y-auto">
+          <BenchmarkView />
+        </main>
+      )}
     </div>
   );
 }

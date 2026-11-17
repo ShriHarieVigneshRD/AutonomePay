@@ -325,6 +325,24 @@ def test_escalation_quotes_a_real_ticket(client, llm_reply):
     assert "{TICKET}" not in body["final_response"] and "#ESC-" in body["final_response"]
 
 
+# --- Phase 4.4: offline policy engine grants grace instead of discounting ------------------
+
+
+def test_offline_grace_request_is_capped_at_policy(client):
+    _, ids = scenario(client, "spotify_india")  # max 7 grace days
+    body = client.post("/api/chat", json=chat_body("Can I pause for 10 days until payday?", ids=ids)).json()
+    assert body["action"] == "EXTEND_GRACE"
+    assert body["proposed_offer"]["grace_days"] == 7
+    assert body["proposed_offer"]["discount_inr"] == 0
+    assert "most Spotify India's policy allows" in body["final_response"]
+
+
+def test_offline_grace_request_within_policy(client):
+    body = client.post("/api/chat", json=chat_body("Could I get 2 extra days to pay?")).json()
+    assert body["action"] == "EXTEND_GRACE" and body["proposed_offer"]["grace_days"] == 2
+    assert body["guardrail_status"] == "PASSED"
+
+
 # --- S3 / S4: request validation and input screening -----------------------------------------
 
 

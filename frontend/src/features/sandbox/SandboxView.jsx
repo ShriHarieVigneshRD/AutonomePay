@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ChatsCircle, Files, Path } from '@phosphor-icons/react';
 import { Segmented } from '../../components/ui/Segmented';
 import { ErrorState } from '../../components/ui/States';
@@ -15,16 +15,28 @@ const MOBILE_PANES = [
 ];
 const SIDE_PANES = MOBILE_PANES.slice(1);
 
+// The selected case lives in the URL (?case=eval_case_07) so a case can be shared or reloaded.
+const caseFromUrl = () => new URLSearchParams(window.location.search).get('case');
+function setCaseInUrl(id) {
+  const url = new URL(window.location.href);
+  url.searchParams.set('case', id);
+  window.history.replaceState(window.history.state, '', url);
+}
+
 /**
  * Layout: ≥1280px three columns (case · chat · audit); 768–1279px chat + a tabbed side column;
  * <768px one pane at a time behind a segmented control.
  */
-export function SandboxView({ scenarios, loading, error, onRetry }) {
-  const [selectedId, setSelectedId] = useState(null);
+export function SandboxView({ active = true, scenarios, loading, error, onRetry }) {
+  const [selectedId, setSelectedId] = useState(caseFromUrl);
   const [pane, setPane] = useState('chat');
   const [side, setSide] = useState('case');
   const scenario = scenarios.find((s) => s.id === selectedId) ?? scenarios[0] ?? null;
   const conversation = useConversation(scenario);
+
+  useEffect(() => {
+    if (active && scenario) setCaseInUrl(scenario.id);
+  }, [active, scenario]);
 
   const show = (name) =>
     `${pane === name ? 'flex' : 'hidden'} ${name === 'chat' || side === name ? 'md:flex' : 'md:hidden'} xl:flex`;

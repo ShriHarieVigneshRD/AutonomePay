@@ -70,3 +70,21 @@ test('F29–F30: benchmark runs, fills the ledger and opens a trace', async ({ p
   await page.keyboard.press('Escape');
   await expect(drawer).toBeHidden();
 });
+
+test('shared case links open that case', async ({ page }) => {
+  await page.goto('/?case=eval_case_03');
+  await expect(page.getByText(/Hello Vikram/)).toBeVisible();
+  await expect(page.getByRole('button', { name: /change case/i })).toContainText('QuickKart B2B');
+});
+
+test('a conversation survives a visit to the benchmark', async ({ page }) => {
+  await page.goto('/?case=eval_case_02');
+  await reply(page).fill('Can we split this into instalments?');
+  await reply(page).press('Enter');
+  await expect(page.getByText('Due now', { exact: true })).toBeVisible();
+  await page.getByRole('link', { name: 'Benchmark' }).click();
+  await expect(page.getByRole('heading', { name: 'Benchmark', level: 1 })).toBeVisible();
+  await page.getByRole('link', { name: 'Sandbox' }).click();
+  await expect(page.getByText('Can we split this into instalments?')).toBeVisible();
+  await expect(page).toHaveURL(/case=eval_case_02/);
+});

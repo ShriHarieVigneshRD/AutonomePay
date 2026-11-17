@@ -28,6 +28,18 @@ _CONSENT = re.compile(
 )
 _NEGATION = re.compile(r"\b(no|not|don'?t|do not|can'?t|cannot|won'?t|never)\b", re.IGNORECASE)
 _YES = re.compile(r"\byes\b", re.IGNORECASE)
+GRACE_WORDS = (
+    "pause",
+    "grace",
+    "extension",
+    "extend",
+    "more time",
+    "extra days",
+    "payday",
+    "next week",
+    "hold access",
+)
+_DAYS = re.compile(r"(\d+)\s*(?:-\s*|extra\s+|more\s+|additional\s+)?days?\b")
 INR_AMOUNT = re.compile(r"(?:INR|Rs\.?|₹)\s*([\d,]+(?:\.\d+)?)", re.IGNORECASE)
 _URL = re.compile(r"\[([^\]]*)\]\((https?://[^)]+)\)|https?://\S+")
 
@@ -158,6 +170,15 @@ def heuristic_offer(last_user_msg: str, rules: MerchantRules, original_amount: f
         plan = max(lower_plans, key=lambda p: p.price_inr)
         return _reply("PLAN_DOWNGRADE", plan.price_inr, consent,
                       f"I can move you to the {plan.name} at INR {plan.price_inr:,.2f}.")  # fmt: skip
+
+    if rules.max_grace_days and any(w in lower for w in GRACE_WORDS):
+        requested = _DAYS.search(lower)
+        wanted = int(requested.group(1)) if requested else rules.max_grace_days
+        days = max(1, min(wanted, rules.max_grace_days))
+        text = f"I can give you {days} extra day{'s' if days > 1 else ''} to pay the full INR {original_amount:,.2f}."
+        if wanted > rules.max_grace_days:
+            text += f" That's the most {rules.name}'s policy allows."
+        return _reply("EXTEND_GRACE", original_amount, consent, text, grace_days=days)
 
     grace = min(3, rules.max_grace_days)
     if rules.max_discount_inr > 0:
