@@ -195,6 +195,21 @@ def test_b9_live_failure_returns_no_link():
     assert result["success"] is False and "short_url" not in result
 
 
+def test_s5_no_customer_notifications_by_default(monkeypatch):
+    live = RazorpayClient(key_id="rzp_test_realLookingKey", key_secret="secret")
+    sent = {}
+    live.client.payment_link.create = lambda payload: (
+        sent.update(payload) or {"id": "plink_x", "short_url": "u"}
+    )
+    live.create_payment_link(299, "test", "inv-1", customer_name="Aarav", customer_phone="+919876543210")
+    assert sent["notify"] == {"sms": False, "email": False}
+    assert "contact" not in sent["customer"]
+
+    monkeypatch.setattr(settings, "RAZORPAY_NOTIFY_CUSTOMERS", True)
+    live.create_payment_link(299, "test", "inv-1", customer_name="Aarav", customer_phone="+919800000000")
+    assert sent["notify"]["sms"] is True and sent["customer"]["contact"] == "+919800000000"
+
+
 def test_b9_sandbox_links_are_marked_and_unguessable():
     result = RazorpayClient(key_id="rzp_test_mock12345").create_payment_link(279, "test", "inv-1")
     assert result["sandbox"] is True

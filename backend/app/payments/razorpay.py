@@ -19,7 +19,10 @@ def is_sandbox_key(key_id: str) -> bool:
 
 
 def _real_contact(email: str | None, phone: str | None) -> dict[str, str]:
-    """Only pass contact details Razorpay should actually notify (never demo placeholders)."""
+    """Contact details for Razorpay to notify. Off unless RAZORPAY_NOTIFY_CUSTOMERS is set, because the
+    seeded demo customers have made-up phone numbers that may belong to real people."""
+    if not settings.RAZORPAY_NOTIFY_CUSTOMERS:
+        return {}
     contact = {}
     if email and not email.endswith("@example.com"):
         contact["email"] = email

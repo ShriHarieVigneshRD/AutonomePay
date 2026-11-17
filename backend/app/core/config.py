@@ -44,6 +44,8 @@ class Settings(BaseSettings):
     # Razorpay; key ids starting with "rzp_test_mock" mean sandbox links
     RAZORPAY_KEY_ID: str = "rzp_test_mock12345"
     RAZORPAY_KEY_SECRET: str = "mock_secret_67890"
+    # Let Razorpay SMS/email customers about links. Only for real customer data, never the demo seed.
+    RAZORPAY_NOTIFY_CUSTOMERS: bool = False
     # Payment tools are called over MCP: embedded | remote | stdio (see app/payments/mcp_client.py)
     RAZORPAY_MCP_MODE: Literal["embedded", "remote", "stdio"] = "embedded"
     RAZORPAY_MCP_URL: str = "https://mcp.razorpay.com/mcp"
