@@ -11,6 +11,10 @@ const data = (request) => request.then((res) => res.data);
 export const api = {
   scenarios: () => data(http.get('/scenarios')),
   chat: (body) => data(http.post('/chat', body)),
+  startConversation: (scenarioId) => data(http.post('/conversations', { scenario_id: scenarioId })),
+  getConversation: (id) => data(http.get(`/conversations/${encodeURIComponent(id)}`)),
+  sendMessage: (id, content) =>
+    data(http.post(`/conversations/${encodeURIComponent(id)}/messages`, { content })),
   batches: () => data(http.get('/evals/batches')),
   results: (batchId) => data(http.get('/evals/results', { params: { batch_id: batchId } })),
   runBenchmark: () => data(http.post('/evals/run')),

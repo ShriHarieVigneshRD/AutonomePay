@@ -163,6 +163,40 @@ class PaymentLink(Base):
     paid_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
+class Conversation(Base):
+    """A negotiation for one scenario. The server owns the history (clients send only new text)."""
+
+    __tablename__ = "conversations"
+
+    conversation_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    scenario_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    merchant_id: Mapped[str] = mapped_column(String(64), ForeignKey("merchants.merchant_id"), nullable=False)
+    customer_id: Mapped[str] = mapped_column(String(64), ForeignKey("customers.customer_id"), nullable=False)
+    invoice_id: Mapped[str] = mapped_column(String(64), ForeignKey("invoices.invoice_id"), nullable=False)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, default=utcnow)
+
+    messages: Mapped[list["ConversationMessage"]] = relationship(
+        back_populates="conversation", cascade="all, delete-orphan", order_by="ConversationMessage.id"
+    )
+
+
+class ConversationMessage(Base):
+    __tablename__ = "conversation_messages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    conversation_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("conversations.conversation_id"), nullable=False, index=True
+    )
+    role: Mapped[str] = mapped_column(String(16), nullable=False)
+    content: Mapped[str] = mapped_column(String(8000), nullable=False)
+    meta: Mapped[Any | None] = mapped_column(
+        JSON, nullable=True
+    )  # the agent turn result, for assistant replies
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, default=utcnow)
+
+    conversation: Mapped["Conversation"] = relationship(back_populates="messages")
+
+
 def get_db():
     db = SessionLocal()
     try:

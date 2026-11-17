@@ -1,28 +1,34 @@
 import { useEffect, useRef, useState } from 'react';
-import { api, errorMessage, newSessionId } from '../lib/api';
+import { api, errorMessage } from '../lib/api';
 
 const greeting = (scenario) => (scenario ? [{ role: 'assistant', content: scenario.initial_message }] : []);
+const lastTrace = (messages) => messages.findLast((m) => m.meta)?.meta ?? null;
 
 /**
- * One negotiation with the agent for the selected scenario.
- * A failed send is reported in `failed` and is never added to the history sent to the backend.
- * Agent replies carry the full turn result in `meta` (offer, guardrails, payment link); it is not sent back.
+ * One server-side negotiation for the selected scenario.
+ * The conversation is created on the first send; only the new text is sent each turn.
+ * A failed send is reported in `failed` and never stored. Agent replies carry their turn result in `meta`.
+ * `restoreId` (e.g. from the URL) reloads an existing conversation for this scenario.
  */
-export function useConversation(scenario) {
+export function useConversation(scenario, restoreId = null) {
   const [scenarioId, setScenarioId] = useState(scenario?.id);
-  const [sessionId, setSessionId] = useState(newSessionId);
+  const [conversationId, setConversationId] = useState(null);
   const [messages, setMessages] = useState(() => greeting(scenario));
   const [trace, setTrace] = useState(null);
   const [sending, setSending] = useState(false);
   const [failed, setFailed] = useState(null); // { text, error }
-  const activeSession = useRef(sessionId);
+  // Bumps on reset, so late replies from an old conversation are ignored (ref mirrors it for async code).
+  const [epoch, setEpoch] = useState(0);
+  const liveEpoch = useRef(0);
+  const pendingRestore = useRef(restoreId);
 
   useEffect(() => {
-    activeSession.current = sessionId;
-  }, [sessionId]);
+    liveEpoch.current = epoch;
+  }, [epoch]);
 
   const reset = () => {
-    setSessionId(newSessionId());
+    setEpoch((e) => e + 1);
+    setConversationId(null);
     setMessages(greeting(scenario));
     setTrace(null);
     setSending(false);
@@ -35,33 +41,62 @@ export function useConversation(scenario) {
     reset();
   }
 
+  useEffect(() => {
+    const id = pendingRestore.current;
+    if (!id || !scenario) return;
+    pendingRestore.current = null;
+    const at = liveEpoch.current;
+    api.getConversation(id).then(
+      (conv) => {
+        if (liveEpoch.current !== at || conv.scenario_id !== scenario.id) return;
+        setConversationId(conv.conversation_id);
+        setMessages(conv.messages);
+        setTrace(lastTrace(conv.messages));
+      },
+      () => {}, // an expired or foreign id just means a fresh conversation
+    );
+  }, [scenario]);
+
   const send = async (text) => {
     const content = text.trim();
     if (!scenario || !content || sending) return;
-    const session = sessionId;
-    const history = [...messages, { role: 'user', content }];
-    setMessages(history);
+    const at = epoch;
+    const before = messages;
+    setMessages([...before, { role: 'user', content }]);
     setSending(true);
     setFailed(null);
     try {
-      const data = await api.chat({
-        merchant_id: scenario.merchant_id,
-        customer_id: scenario.customer_id,
-        invoice_id: scenario.invoice_id,
-        session_id: session,
-        messages: history.map(({ role, content }) => ({ role, content })),
-      });
-      if (activeSession.current !== session) return; // user moved on to another conversation
-      setMessages([...history, { role: 'assistant', content: data.final_response, meta: data }]);
+      let id = conversationId;
+      if (!id) {
+        id = (await api.startConversation(scenario.id)).conversation_id;
+        if (liveEpoch.current !== at) return;
+        setConversationId(id);
+      }
+      const data = await api.sendMessage(id, content);
+      if (liveEpoch.current !== at) return; // user moved on to another conversation
+      setMessages([
+        ...before,
+        { role: 'user', content },
+        { role: 'assistant', content: data.final_response, meta: data },
+      ]);
       setTrace(data);
     } catch (error) {
-      if (activeSession.current !== session) return;
-      setMessages(messages);
+      if (liveEpoch.current !== at) return;
+      setMessages(before);
       setFailed({ text: content, error: errorMessage(error) });
     } finally {
-      if (activeSession.current === session) setSending(false);
+      if (liveEpoch.current === at) setSending(false);
     }
   };
 
-  return { messages, trace, sending, failed, send, reset, retry: () => failed && send(failed.text) };
+  return {
+    conversationId,
+    messages,
+    trace,
+    sending,
+    failed,
+    send,
+    reset,
+    retry: () => failed && send(failed.text),
+  };
 }

@@ -11,9 +11,10 @@ function slipLines(offer, action, scenario) {
   const original = offer.original_amount;
   const amount = offer.proposed_amount;
   if (action === 'PLAN_DOWNGRADE') {
+    const plan = scenario?.policy?.plans?.find((p) => Math.abs(p.price_inr - amount) < 0.5);
     return [
-      ['Current plan', inr(original)],
-      ['New plan', inr(amount)],
+      [`Current · ${scenario?.plan_name ?? 'plan'}`, inr(original)],
+      [`New · ${plan?.name ?? 'lighter plan'}`, inr(amount)],
     ];
   }
   if (action === 'MILESTONE_SPLIT' && offer.split_amounts?.length > 1) {

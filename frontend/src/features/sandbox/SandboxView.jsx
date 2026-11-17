@@ -15,11 +15,13 @@ const MOBILE_PANES = [
 ];
 const SIDE_PANES = MOBILE_PANES.slice(1);
 
-// The selected case lives in the URL (?case=eval_case_07) so a case can be shared or reloaded.
-const caseFromUrl = () => new URLSearchParams(window.location.search).get('case');
-function setCaseInUrl(id) {
+// The case and conversation live in the URL (?case=…&conversation=…) so they survive a reload and can be shared.
+const urlParam = (name) => new URLSearchParams(window.location.search).get(name);
+function syncUrl(caseId, conversationId) {
   const url = new URL(window.location.href);
-  url.searchParams.set('case', id);
+  url.searchParams.set('case', caseId);
+  if (conversationId) url.searchParams.set('conversation', conversationId);
+  else url.searchParams.delete('conversation');
   window.history.replaceState(window.history.state, '', url);
 }
 
@@ -28,15 +30,16 @@ function setCaseInUrl(id) {
  * <768px one pane at a time behind a segmented control.
  */
 export function SandboxView({ active = true, scenarios, loading, error, onRetry }) {
-  const [selectedId, setSelectedId] = useState(caseFromUrl);
+  const [selectedId, setSelectedId] = useState(() => urlParam('case'));
+  const [restoreId] = useState(() => urlParam('conversation'));
   const [pane, setPane] = useState('chat');
   const [side, setSide] = useState('case');
   const scenario = scenarios.find((s) => s.id === selectedId) ?? scenarios[0] ?? null;
-  const conversation = useConversation(scenario);
+  const conversation = useConversation(scenario, restoreId);
 
   useEffect(() => {
-    if (active && scenario) setCaseInUrl(scenario.id);
-  }, [active, scenario]);
+    if (active && scenario) syncUrl(scenario.id, conversation.conversationId);
+  }, [active, scenario, conversation.conversationId]);
 
   const show = (name) =>
     `${pane === name ? 'flex' : 'hidden'} ${name === 'chat' || side === name ? 'md:flex' : 'md:hidden'} xl:flex`;

@@ -103,3 +103,13 @@ test('N7: paying a sandbox link in another tab shows as paid', async ({ page, co
   await page.getByRole('button', { name: 'Check status' }).click();
   await expect(page.getByText(/Paid ₹279\.00/)).toBeVisible();
 });
+
+test('N6: a conversation survives a page reload', async ({ page }) => {
+  await reply(page).fill('Can I move to a cheaper plan?');
+  await reply(page).press('Enter');
+  await expect(page.getByRole('article', { name: 'Settlement slip' })).toContainText('Mobile Plan');
+  await expect(page).toHaveURL(/conversation=conv_/);
+  await page.reload();
+  await expect(page.getByText('Can I move to a cheaper plan?')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Guardrails' })).toBeVisible();
+});
