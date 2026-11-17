@@ -55,6 +55,8 @@ export default defineConfig({
         LANGCHAIN_TRACING_V2: 'false',
         LANGSMITH_TRACING: 'false',
         CORS_ORIGINS: `http://localhost:${FRONTEND_PORT}`,
+        PUBLIC_APP_URL: `http://localhost:${FRONTEND_PORT}`,
+        RAZORPAY_MCP_MODE: 'embedded',
       },
     },
     {

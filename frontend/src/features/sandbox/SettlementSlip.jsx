@@ -1,9 +1,9 @@
-import { ArrowSquareOut, Clock } from '@phosphor-icons/react';
-import { ButtonLink } from '../../components/ui/Button';
+import { Clock } from '@phosphor-icons/react';
 import { Eyebrow } from '../../components/ui/Panel';
 import { Stamp } from '../../components/ui/Stamp';
 import { actionLabel, inr, verdictOf } from '../../lib/format';
 import { BoundsMeter } from './BoundsMeter';
+import { PaymentStatus } from './PaymentStatus';
 
 const NO_SLIP = new Set(['HUMAN_ESCALATION', 'GRACEFUL_DISCONTINUATION', 'BLOCKED', 'NONE']);
 
@@ -108,15 +108,7 @@ export function SettlementSlip({ turn, scenario, fresh = false }) {
 
       <footer className="border-t border-rule/10 px-4 py-3">
         {payload?.success ? (
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <ButtonLink href={payload.short_url} target="_blank" rel="noopener noreferrer" size="sm">
-              Pay {inr(payload.amount_in_inr)}
-              <ArrowSquareOut className="h-4 w-4" aria-hidden />
-            </ButtonLink>
-            <span className="text-xs text-ink-3">
-              {payload.sandbox ? 'Sandbox link' : 'Razorpay link'} · via MCP
-            </span>
-          </div>
+          <PaymentStatus payload={payload} />
         ) : payload && !payload.success ? (
           <p className="text-xs text-void">{payload.error || 'The payment link could not be created.'}</p>
         ) : (

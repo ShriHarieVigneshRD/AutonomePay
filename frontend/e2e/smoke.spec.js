@@ -88,3 +88,18 @@ test('a conversation survives a visit to the benchmark', async ({ page }) => {
   await expect(page.getByText('Can we split this into instalments?')).toBeVisible();
   await expect(page).toHaveURL(/case=eval_case_02/);
 });
+
+test('N7: paying a sandbox link in another tab shows as paid', async ({ page, context }) => {
+  await reply(page).fill('Yes please, send the payment link.');
+  await reply(page).press('Enter');
+  const [checkout] = await Promise.all([
+    context.waitForEvent('page'),
+    page.getByRole('link', { name: /Pay ₹279\.00/ }).click(),
+  ]);
+  await expect(checkout.getByText('₹279.00')).toBeVisible();
+  await checkout.getByRole('button', { name: 'Simulate successful payment' }).click();
+  await expect(checkout.getByText('Payment received')).toBeVisible();
+  await checkout.close();
+  await page.getByRole('button', { name: 'Check status' }).click();
+  await expect(page.getByText(/Paid ₹279\.00/)).toBeVisible();
+});

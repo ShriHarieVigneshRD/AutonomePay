@@ -14,6 +14,8 @@ export const api = {
   batches: () => data(http.get('/evals/batches')),
   results: (batchId) => data(http.get('/evals/results', { params: { batch_id: batchId } })),
   runBenchmark: () => data(http.post('/evals/run')),
+  paymentStatus: (linkId) => data(http.get(`/payments/${encodeURIComponent(linkId)}`)),
+  simulatePayment: (linkId) => data(http.post(`/payments/${encodeURIComponent(linkId)}/simulate-payment`)),
 };
 
 /** One readable sentence for any failed request. */

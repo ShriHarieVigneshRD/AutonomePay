@@ -106,6 +106,8 @@ def get_all_50_formatted_scenarios(db: Session) -> list[dict[str, Any]]:
                 "max_grace_days": int(merchant.max_grace_days or 0),
                 "is_multi_turn": case["is_multi_turn"],
                 "initial_message": greeting,
+                "invoice_status": invoice.current_status if invoice else None,
+                "recovered_inr": float(invoice.recovered_amount or 0) if invoice else 0.0,
                 "policy": {
                     "plans": [
                         {"name": p.name, "price_inr": float(p.price_inr), "period": p.period}
