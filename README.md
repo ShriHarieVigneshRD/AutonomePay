@@ -24,7 +24,7 @@ Built for the Razorpay AI Buildathon. The live demo at [autonome-pay.vercel.app]
 - **Real MCP payments.** Payment tools (`create_payment_link`, `fetch_payment_link`) are called over MCP. The server is either AutonomePay's own (live Razorpay API or a sandbox) or Razorpay's official hosted MCP server.
 - **Payment status loop.** "Check status" asks the provider over MCP. Paid links mark the invoice recovered or partially recovered. Sandbox links open a `/pay/<id>` checkout where a payment can be simulated.
 - **Grounded retrieval.** Curated merchant rules plus dated snapshots of public merchant pages. Ranking is BM25 + dense embeddings fused with reciprocal-rank fusion, then a cross-encoder reranker. Replies cite their sources.
-- **Honest benchmark.** 50 scripted multi-turn negotiations, each scored against an expected outcome (right action, link or no link). The dashboard shows a hero "covered by payment links" figure, pass rate, guardrail corrections, blocked injections, faithfulness, latency and tokens, plus a 50-cell case ledger.
+- **Honest benchmark.** 50 distinct scripted negotiations, each scored automatically against an expected outcome: the right action, link or no link, and where it matters the exact approved amount and the policy passage, often a public-page snapshot, that must have been consulted. See [docs/BENCHMARK.md](docs/BENCHMARK.md). The dashboard shows a hero "covered by payment links" figure, pass rate, guardrail corrections, blocked injections, faithfulness, latency and tokens, plus a 50-cell case ledger.
 - **Server-side conversations.** The server keeps the history, so it can't be forged. Conversations survive a reload and can be shared (`?case=…&conversation=…`).
 - **Works offline.** With no API keys it runs a deterministic, merchant-aware policy engine and sandbox payments, which is how the test suites run.
 - **Responsive and accessible.** Phone, tablet and desktop layouts; light and dark themes; native dialogs; keyboard navigation; AA text contrast.
@@ -164,7 +164,7 @@ docs/               ANALYSIS, PLAN, TEST_REPORT, CHANGELOG, screenshots, archive
 ```bash
 # backend
 cd backend
-pytest                    # 128 tests, offline, ~5 s
+pytest                    # 167 tests, offline, ~5 s
 pytest -m slow            # model-backed retrieval test (downloads models once)
 ruff check app tests && ruff format --check app tests && pyright
 

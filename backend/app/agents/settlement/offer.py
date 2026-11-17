@@ -5,7 +5,7 @@ import json
 import re
 from typing import Any
 
-from app.core.catalog import MerchantRules
+from app.core.catalog import MerchantRules, Plan
 from app.guardrails.offer_guard import TOLERANCE_INR
 
 CONFIRMATION_QUESTIONS = (
@@ -117,15 +117,18 @@ def unapproved_amounts(message: str, allowed: list[float]) -> list[float]:
     return [a for a in stated_amounts(message) if not any(abs(a - b) <= TOLERANCE_INR for b in allowed)]
 
 
+def plan_label(name: str) -> str:
+    """ "Basic" -> "Basic plan"; "Mobile Plan" stays as is."""
+    return name if "plan" in name.lower() else f"{name} plan"
+
+
 def approved_offer_message(action: str, offer: dict[str, Any], rules: MerchantRules) -> str:
     """Deterministic wording for an approved offer (used when the LLM's text can't be trusted)."""
     amount, original = offer["proposed_amount"], offer["original_amount"]
     if action == "PLAN_DOWNGRADE":
-        plan = next(
-            (p.name for p in rules.plans if abs(p.price_inr - amount) <= TOLERANCE_INR), "a lighter plan"
-        )
-        label = plan if "plan" in plan.lower() else f"{plan} plan"
-        text = f"I can move you to the {label} at INR {amount:,.2f}."
+        plan = next((p.name for p in rules.plans if abs(p.price_inr - amount) <= TOLERANCE_INR), None)
+        target = f"the {plan_label(plan)}" if plan else "a lighter plan"
+        text = f"I can move you to {target} at INR {amount:,.2f}."
     elif action == "MILESTONE_SPLIT" and offer.get("split_amounts"):
         rest = " and ".join(f"INR {s:,.2f}" for s in offer["split_amounts"][1:])
         text = f"You can pay in instalments: INR {amount:,.2f} now, then {rest} later."
@@ -146,6 +149,20 @@ def approved_offer_message(action: str, offer: dict[str, Any], rules: MerchantRu
     return text
 
 
+DOWNGRADE_WORDS = ("downgrade", "cheaper", "cheapest", "lighter", "lower tier", "smaller plan",
+                   "switch me to", "move me to", "switch to the", "move to the")  # fmt: skip
+
+
+def named_plan(message: str, plans: list[Plan]) -> Plan:
+    """The plan the customer named (most shared words), else the priciest of the cheaper plans."""
+    words = set(re.findall(r"[a-z]+", message.lower()))
+
+    def overlap(plan: Plan) -> int:
+        return len((set(re.findall(r"[a-z]+", plan.name.lower())) - {"plan"}) & words)
+
+    return max(plans, key=lambda p: (overlap(p), p.price_inr))
+
+
 def heuristic_offer(last_user_msg: str, rules: MerchantRules, original_amount: float) -> dict[str, Any]:
     """Keyword-based reply used when the LLM is unavailable or its reply is unusable."""
     lower = last_user_msg.lower()
@@ -157,14 +174,14 @@ def heuristic_offer(last_user_msg: str, rules: MerchantRules, original_amount: f
         return _reply("GRACEFUL_DISCONTINUATION", original_amount, False,
                       "Understood. I'll respect your decision and won't proceed with a payment request. "
                       "If you'd like to return in the future, we'll be happy to help.")  # fmt: skip
-    if any(w in lower for w in ("fraud", "unauthori", "escalate", "specialist", "human")):
+    if any(w in lower for w in ("fraud", "unauthori", "never authori", "escalate", "specialist", "human")):
         return _reply("HUMAN_ESCALATION", original_amount, False,
                       "I've escalated this to a human specialist with ticket {TICKET}. "
                       "They'll reach out within 24 hours.")  # fmt: skip
     if partial and any(w in lower for w in ("damaged", "dispute", "undisputed", "holding", "hold the")):
         return _reply("PARTIAL_SETTLEMENT", partial, consent,
                       f"We can hold the disputed portion and settle the undisputed balance of INR {partial:,.2f} now.")  # fmt: skip
-    if any(w in lower for w in ("split", "50/50", "instal", "milestone", "tranche")):
+    if any(w in lower for w in ("split", "50/50", "instal", "milestone", "tranche", "stage")):
         if rules.split_allowed(original_amount):
             parts = rules.split_amounts(original_amount)
             schedule = "/".join(f"{pct:g}" for pct in rules.split_schedule_pct)
@@ -175,12 +192,10 @@ def heuristic_offer(last_user_msg: str, rules: MerchantRules, original_amount: f
         return _reply("PROPOSE_SETTLEMENT", original_amount, False,
                       f"{rules.name}'s policy doesn't allow split payments for this invoice, but I can give you "
                       f"up to {rules.max_grace_days} extra days to pay the full amount.", question=False)  # fmt: skip
-    if lower_plans and any(
-        w in lower for w in ("downgrade", "cheaper", "lighter", "lower tier", "smaller plan")
-    ):
-        plan = max(lower_plans, key=lambda p: p.price_inr)
+    if lower_plans and any(w in lower for w in DOWNGRADE_WORDS):
+        plan = named_plan(lower, lower_plans)
         return _reply("PLAN_DOWNGRADE", plan.price_inr, consent,
-                      f"I can move you to the {plan.name} at INR {plan.price_inr:,.2f}.")  # fmt: skip
+                      f"I can move you to the {plan_label(plan.name)} at INR {plan.price_inr:,.2f}.")  # fmt: skip
 
     if rules.max_grace_days and any(w in lower for w in GRACE_WORDS):
         requested = _DAYS.search(lower)

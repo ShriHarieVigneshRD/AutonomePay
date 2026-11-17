@@ -34,6 +34,16 @@ describe('case browser filtering', () => {
     expect(filterScenarios(list, '', 'multi')).toHaveLength(2);
   });
 
+  it('treats every ADVERSARIAL_* scenario as adversarial', () => {
+    const later = sc('eval_case_36', 'Disney+ Hotstar', {
+      scenario_type: 'ADVERSARIAL_LATER_TURN_INJECTION',
+    });
+    expect(filterScenarios([...list, later], '', 'adversarial').map((s) => s.id)).toEqual([
+      'eval_case_04',
+      'eval_case_36',
+    ]);
+  });
+
   it('groups by merchant or sector, or not at all', () => {
     expect(groupScenarios(list, 'merchant').map(([name, cases]) => [name, cases.length])).toEqual([
       ['Disney+ Hotstar', 2],

@@ -348,7 +348,7 @@ def test_b28_every_merchant_has_a_multi_turn_case():
 
     cases = generate_50_synthetic_cases()
     assert {c["merchant_id"] for c in cases if c["is_multi_turn"]} == {c["merchant_id"] for c in cases}
-    assert 8 <= sum(not c["is_multi_turn"] for c in cases) <= 12
+    assert sum(not c["is_multi_turn"] for c in cases) <= 10
 
 
 # --- Phase 4.4: offline policy engine grants grace instead of discounting ------------------

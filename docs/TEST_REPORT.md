@@ -11,10 +11,10 @@
 | Backend lint | `ruff check app tests` | ✅ clean |
 | Backend format | `ruff format --check app tests` | ✅ 71 files formatted |
 | Backend types | `pyright` (basic) | ✅ 0 errors (8 at the start of Phase 4) |
-| Backend tests | `pytest` | ✅ **128 passed** (+1 `slow` model test, also passing with `-m slow`) in ~5 s |
+| Backend tests | `pytest` | ✅ **167 passed** (+1 `slow` model test, also passing with `-m slow`) in ~5 s |
 | Frontend lint | `npm run lint` (ESLint, `--max-warnings 0`) | ✅ clean (was broken: B24) |
 | Frontend format | `npm run format:check` | ✅ clean |
-| Frontend unit | `npm test` (Vitest) | ✅ **18 passed** |
+| Frontend unit | `npm test` (Vitest) | ✅ **19 passed** |
 | Frontend build | `npm run build` | ✅ 314 kB JS / 97 kB gzip |
 | End-to-end | `npm run test:e2e` (Playwright) | ✅ **16 passed** in ~50 s (desktop 1440, tablet 820, mobile 390; light + dark) |
 | Retrieval quality | `python -m app.evals.retrieval_eval` | ✅ see §4 |
@@ -86,6 +86,14 @@ Every strict xfail now passes as a regression test (`tests/test_regressions.py`)
 - **Browser console:** no errors during any flow.
 - **Contrast:** text tokens computed at ≥ 4.5:1 in both themes. Status colours validated with the dataviz `validate_palette.js` script (CVD separation and lightness) in both modes.
 - **Keyboard and screen-reader semantics:** native `<button>`, `<a>`, `<dialog>` and `<details>`; tabs use `role="tablist"` with arrow keys; the chat log has `aria-live`; labels on all inputs.
+
+## 3a. Benchmark cases (rebuilt after the web policy ingest)
+- 50 distinct cases ([BENCHMARK.md](BENCHMARK.md)): 19 kept and 31 new; 24 exact repeats and 7 redundant single-turn cases were removed.
+- Scoring checks the final action and link, plus (where set) the exact approved amount and a policy passage retrieved on any turn. 23 cases cite a policy passage; 7 of them are public-page snapshots.
+- `tests/test_benchmark_cases.py` validates the dataset itself (no repeats, real actions, sources present in the corpus, amounts the guardrail approves).
+- Offline (deterministic policy engine): **50/50 with `bm25`** and **50/50 with `hybrid_rerank`**.
+  - The first `hybrid_rerank` run scored 49/50. Case 31 exposed a triage gap ("cheaper payroll plan" wasn't seen as a downgrade request, so retrieval missed the pricing page); fixed.
+- Not run against the live LLM in this session; that run is what makes the pass rate a measure of the model.
 
 ## 4. Retrieval quality (N4)
 

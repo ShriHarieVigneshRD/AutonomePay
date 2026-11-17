@@ -10,8 +10,11 @@ INTENT_RULES = [
     ),
     ("CANCELLATION", r"\b(cancel\w*|discontinue|don'?t renew|stop (my|the) (plan|subscription))\b"),
     ("GOODS_DISPUTE", r"\b(dispute\w*|damaged|defective|quality issue|undisputed)\b"),
-    ("SPLIT_REQUEST", r"\b(split|50/50|instal+ments?|milestone|tranche)\b"),
-    ("DOWNGRADE_REQUEST", r"\b(downgrade|cheaper plan|lighter plan|lower tier|smaller plan)\b"),
+    ("SPLIT_REQUEST", r"\b(split|50/50|instal+ments?|milestone|tranche|stages?|staged|halves)\b"),
+    (
+        "DOWNGRADE_REQUEST",
+        r"\b(downgrade|cheaper|cheapest|lighter plan|lower tier|smaller plan|(switch|move) (me )?to)\b",
+    ),
     ("PAUSE_REQUEST", r"\b(pause|travel+ing|on hold|hold (my|access))\b"),
     ("BUDGET_FRICTION", r"\b(afford|expensive|tight|budget|cash ?flow|payday|salary)\b"),
     ("TECHNICAL_GATEWAY_FAILURE", r"\b(bank|gateway|time[sd]? ?out|server|upi|mandate|declined)\b"),

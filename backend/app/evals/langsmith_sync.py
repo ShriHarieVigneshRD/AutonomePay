@@ -50,7 +50,8 @@ def sync_dataset_to_langsmith() -> dict[str, Any]:
                     "expected_action": tc["expected_action"],
                     "expected_actions": tc["expected"]["actions"],
                     "expected_link": tc["expected"]["link"],
-                    "expected_amount": tc["expected_amount"],
+                    "expected_amount": tc["expected"].get("amount"),
+                    "expected_source": tc["expected"].get("source"),
                 },
                 dataset_id=dataset.id,
             )

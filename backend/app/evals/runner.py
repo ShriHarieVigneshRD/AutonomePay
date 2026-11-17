@@ -100,6 +100,7 @@ def run_single_simulation_case(case: dict[str, Any], batch_id: str | None = None
     execution_trace = []
     final_state: dict[str, Any] = {}
     tokens_used = 0
+    retrieved: list[str] = []  # passages from every turn, for the case's `source` expectation
 
     for turn_idx, user_turn in enumerate(dialogue, start=1):
         messages.append({"role": "user", "content": user_turn})
@@ -120,6 +121,7 @@ def run_single_simulation_case(case: dict[str, Any], batch_id: str | None = None
         elapsed = round((time.time() - start_t) * 1000, 2)
 
         tokens_used += final_state.get("tokens_used", 0)
+        retrieved += final_state.get("retrieved_policy_chunks", [])
         bot_response = final_state.get("final_response", "")
         messages.append({"role": "assistant", "content": bot_response})
         execution_trace.append(
@@ -129,6 +131,7 @@ def run_single_simulation_case(case: dict[str, Any], batch_id: str | None = None
                 "agent": bot_response,
                 "guardrail_status": final_state.get("guardrail_status"),
                 "action": final_state.get("action"),
+                "sources": [s["source"] for s in final_state.get("retrieved_sources", [])],
                 "latency_ms": elapsed,
             }
         )
@@ -169,7 +172,7 @@ def run_single_simulation_case(case: dict[str, Any], batch_id: str | None = None
                 tokens_used=tokens_used,
                 final_action=final_state.get("action"),
                 expected_action=case.get("expected_action"),
-                passed=score_case(case, final_state) if "expected" in case else None,
+                passed=score_case(case, final_state, retrieved) if "expected" in case else None,
             )
         )
         db.commit()

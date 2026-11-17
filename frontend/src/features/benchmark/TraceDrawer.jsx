@@ -89,6 +89,11 @@ export function TraceDrawer({ row, onClose }) {
                     <p className="text-ink">{step.user}</p>
                     <p className="mt-2.5 text-xs text-ink-3">Concierge</p>
                     <p className="whitespace-pre-wrap text-ink-2">{step.agent}</p>
+                    {step.sources?.length > 0 && (
+                      <p className="mt-2 text-xs text-ink-3">
+                        Policy used: {[...new Set(step.sources)].join(' · ')}
+                      </p>
+                    )}
                   </li>
                 ))}
               </ol>

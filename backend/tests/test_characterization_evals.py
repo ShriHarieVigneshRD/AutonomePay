@@ -72,7 +72,14 @@ def test_n5_scoring_rejects_wrong_action_or_link():
     from app.evals.dataset import generate_50_synthetic_cases, score_case
 
     notion = next(c for c in generate_50_synthetic_cases() if c["scenario_id"] == "eval_case_02")
-    linked = {"success": True}
-    assert score_case(notion, {"action": "MILESTONE_SPLIT", "razorpay_payload": linked})
-    assert not score_case(notion, {"action": "PROPOSE_SETTLEMENT", "razorpay_payload": linked})
-    assert not score_case(notion, {"action": "MILESTONE_SPLIT", "razorpay_payload": None})
+    split = {
+        "action": "MILESTONE_SPLIT",
+        "razorpay_payload": {"success": True},
+        "proposed_offer": {"proposed_amount": 7500},
+    }
+    assert score_case(notion, split)
+    assert not score_case(notion, {**split, "action": "PROPOSE_SETTLEMENT"})
+    assert not score_case(notion, {**split, "razorpay_payload": None})
+    assert not score_case(
+        notion, {**split, "proposed_offer": {"proposed_amount": 15000}}
+    )  # not the approved half

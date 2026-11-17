@@ -36,7 +36,7 @@ export function filterScenarios(scenarios, query, filter) {
     if (q && !haystack.includes(q)) return false;
     if (filter === 'multi') return sc.is_multi_turn;
     if (filter === 'single') return !sc.is_multi_turn;
-    if (filter === 'adversarial') return sc.scenario_type === 'ADVERSARIAL_INJECTION_ATTEMPT';
+    if (filter === 'adversarial') return sc.scenario_type.startsWith('ADVERSARIAL_');
     return true;
   });
 }

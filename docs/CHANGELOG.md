@@ -2,6 +2,15 @@
 
 All changes on branch `refactor/restructure-and-improve` (from `457f2fb`, 2026-11-17). Bug and security ids (B…, S…) refer to [ANALYSIS.md](ANALYSIS.md); features (F…, N…) to [ANALYSIS.md](ANALYSIS.md) and [PLAN.md](PLAN.md).
 
+## Benchmark rebuilt (2026-11-17, after the web policy ingest)
+- **Removed 31 cases:** 24 exact repeats (same merchant and script, only the invoice amount changed), and 7 of 9 identical single-turn "payment failed" cases.
+- **Added 31 cases:** 13 grounded in the fetched public pages (Netflix, Spotify, Slack, Jira, RazorpayX) and in unexercised policy rules, plus 18 guardrail and conversation edge cases. The full catalogue is in [BENCHMARK.md](BENCHMARK.md).
+- **Scoring:** cases can now also pin the approved amount and a policy passage that must be retrieved on some turn. Each turn's sources are recorded in the trace and shown in the trace drawer.
+- **Data validation:** `tests/test_benchmark_cases.py` rejects repeats, invalid actions, missing policy sources and amounts the guardrail wouldn't approve.
+- **Fixed while building the cases:** triage missed "a cheaper *payroll* plan"; the offline engine ignored the plan the customer named; downgrade wording ("the Basic plan"); the case browser's Adversarial filter missed new injection types.
+- **Renamed** two scenario types whose titles didn't match their dialogues: `NETFLIX_CONCESSION_REQUEST`, `SLACK_RENEWAL_DISCOUNT`.
+- **Existing databases:** new cases use new customer/invoice ids (`…_cNN`), which are seeded automatically. Rows from the old cases stay in the database but are no longer used.
+
 ## Added
 - **N1. Real MCP payments.** `app/payments/mcp_server.py` exposes `create_payment_link` and `fetch_payment_link` (Razorpay-shaped results). It uses the live Razorpay API with real keys, or a DB-backed sandbox. The agent calls it through an MCP client: `embedded` in-process, `remote` (Razorpay's hosted server with Basic auth) or `stdio`.
 - **N2. Web-sourced policies.** `python -m app.rag.ingest` fetches each merchant's public pages, respecting robots.txt. It extracts the main text, screens it for prompt injection, and saves dated snapshots with the source URL. 9 pages for 6 merchants are committed.
