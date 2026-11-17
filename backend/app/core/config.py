@@ -23,9 +23,9 @@ class Settings(BaseSettings):
 
     # LLM via LiteLLM → OpenRouter, tried in this order
     OPENROUTER_API_KEY: str = ""
-    PRIMARY_MODEL: str = "openrouter/minimax/minimax-m3:free"
-    SECONDARY_MODEL: str = "openrouter/minimax/minimax-m2.7:free"
-    THIRD_MODEL: str = "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free"
+    PRIMARY_MODEL: str = "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free"
+    SECONDARY_MODEL: str = "openrouter/google/gemma-4-31b-it:free"
+    THIRD_MODEL: str = "openrouter/nvidia/nemotron-3.5-super-vl:free"
     FALLBACK_MODEL: str = "openrouter/openrouter/free"
     LLM_MAX_TOKENS: int = 800
     MAX_SESSION_TOKEN_BUDGET: int = 6000

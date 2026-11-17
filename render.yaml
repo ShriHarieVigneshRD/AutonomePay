@@ -12,11 +12,11 @@ services:
       - key: DATABASE_URL
         value: sqlite:///./autonomepay.db
       - key: PRIMARY_MODEL
-        value: openrouter/minimax/minimax-m3:free
-      - key: SECONDARY_MODEL
-        value: openrouter/minimax/minimax-m2.7:free
-      - key: THIRD_MODEL
         value: openrouter/nvidia/nemotron-3-ultra-550b-a55b:free
+      - key: SECONDARY_MODEL
+        value: openrouter/google/gemma-4-31b-it:free
+      - key: THIRD_MODEL
+        value: openrouter/nvidia/nemotron-3.5-super-vl:free
       - key: FALLBACK_MODEL
         value: openrouter/openrouter/free
       # Measured memory: bm25 ~290 MB, hybrid ~555 MB, hybrid_rerank ~700 MB.

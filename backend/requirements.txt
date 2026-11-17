@@ -7,7 +7,6 @@ pydantic-settings==2.15.0
 sqlalchemy==2.0.52
 psycopg2-binary==2.9.12      # only for a PostgreSQL DATABASE_URL
 langgraph==1.2.11
-langchain-core==1.6.1
 litellm==1.98.0
 mcp==2.1.1                   # payment tools are called over the Model Context Protocol
 razorpay==2.0.1

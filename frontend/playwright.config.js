@@ -33,7 +33,12 @@ export default defineConfig({
     {
       name: 'mobile',
       testMatch: /responsive/,
-      use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true },
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 390, height: 844 },
+        hasTouch: true,
+        isMobile: true,
+      },
     },
   ],
   webServer: [

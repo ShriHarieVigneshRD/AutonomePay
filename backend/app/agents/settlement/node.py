@@ -1,6 +1,7 @@
 """Settlement node: ask the LLM for an offer within merchant policy, enforce the deterministic
 guardrails, and create a payment link only for the approved amount and only with consent."""
 
+import logging
 import time
 import uuid
 from typing import Any
@@ -25,6 +26,8 @@ from app.guardrails.input_guard import screen_conversation
 from app.guardrails.offer_guard import NO_PAYMENT_ACTIONS, run_post_llm_guardrail
 from app.payments import mcp_client
 from app.payments.ledger import record_issued_link
+
+logger = logging.getLogger(__name__)
 
 BUDGET_MESSAGE = (
     "This conversation has reached its length limit. Please start a new conversation to continue."
@@ -86,7 +89,14 @@ def settlement_node(state: AutonomeState) -> AutonomeState:
         return _finish(state, start, final_response=BUDGET_MESSAGE, action="NONE", step="BUDGET_EXHAUSTED",
                        guardrail_checks=[input_check], razorpay_payload=None)  # fmt: skip
 
-    parsed = parse_llm_json(llm.get("content", "")) or heuristic_offer(last_user_msg, rules, original_amount)
+    content = llm.get("content", "")
+    parsed = parse_llm_json(content)
+    if parsed is None:
+        if content:
+            logger.warning(
+                "LLM reply was not usable JSON; using the policy heuristic. Reply began: %r", content[:300]
+            )
+        parsed = heuristic_offer(last_user_msg, rules, original_amount)
 
     # 3. Deterministic offer guardrail
     guard = run_post_llm_guardrail(
@@ -154,7 +164,8 @@ def settlement_node(state: AutonomeState) -> AutonomeState:
         message += f"\n\n[ Pay INR {offer['proposed_amount']:.2f} via Razorpay ]({result['short_url']})"
         step = "LINK_ISSUED"
     else:
-        message += f"\n\n{LINK_FAILED_MESSAGE}"
+        # The LLM may have promised the link; restate the offer instead of contradicting it.
+        message = f"{approved_offer_message(action, offer, rules)}\n\n{LINK_FAILED_MESSAGE}"
         step = "LINK_FAILED"
     return _finish(state, start, final_response=message, action=action, guardrail_checks=checks, step=step,
                    razorpay_payload=result)  # fmt: skip

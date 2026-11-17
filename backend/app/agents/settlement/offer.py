@@ -45,14 +45,24 @@ _URL = re.compile(r"\[([^\]]*)\]\((https?://[^)]+)\)|https?://\S+")
 
 
 def parse_llm_json(raw_content: str) -> dict[str, Any] | None:
-    match = re.search(r"\{.*\}", raw_content or "", re.DOTALL)
-    if not match:
+    """Extract the reply's JSON object, tolerating what free models actually send: code fences,
+    prose around the object, raw newlines inside strings, and an unclosed final string."""
+    text = raw_content or ""
+    start = text.find("{")
+    if start < 0:
         return None
-    try:
-        parsed = json.loads(match.group(0))
-    except ValueError:
-        return None
-    return parsed if isinstance(parsed, dict) else None
+    body = text[start:]
+    end = body.rfind("}")
+    for candidate in (body[: end + 1] if end >= 0 else None, body + '"}', body + "}"):
+        if candidate is None:
+            continue
+        try:
+            parsed = json.loads(candidate, strict=False)  # strict=False: allow raw newlines in strings
+        except ValueError:
+            continue
+        if isinstance(parsed, dict):
+            return parsed
+    return None
 
 
 def user_gave_consent(message: str) -> bool:
@@ -114,7 +124,8 @@ def approved_offer_message(action: str, offer: dict[str, Any], rules: MerchantRu
         plan = next(
             (p.name for p in rules.plans if abs(p.price_inr - amount) <= TOLERANCE_INR), "a lighter plan"
         )
-        text = f"I can move you to the {plan} at INR {amount:,.2f}."
+        label = plan if "plan" in plan.lower() else f"{plan} plan"
+        text = f"I can move you to the {label} at INR {amount:,.2f}."
     elif action == "MILESTONE_SPLIT" and offer.get("split_amounts"):
         rest = " and ".join(f"INR {s:,.2f}" for s in offer["split_amounts"][1:])
         text = f"You can pay in instalments: INR {amount:,.2f} now, then {rest} later."
