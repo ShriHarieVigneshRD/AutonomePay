@@ -31,6 +31,11 @@ ADDED_COLUMNS: dict[str, dict[str, str]] = {
     },
 }
 
+# table -> {column: VARCHAR length}. Columns created too narrow by an earlier version; widening is safe.
+WIDENED_COLUMNS: dict[str, dict[str, int]] = {
+    "evaluation_runs": {"expected_action": 255},
+}
+
 
 def add_missing_columns(engine: Engine) -> None:
     inspector = inspect(engine)
@@ -44,3 +49,16 @@ def add_missing_columns(engine: Engine) -> None:
                 if column not in existing:
                     conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}"))
                     logger.info("Added column %s.%s", table, column)
+
+        if engine.dialect.name != "postgresql":  # SQLite doesn't enforce VARCHAR lengths
+            return
+        for table, columns in WIDENED_COLUMNS.items():
+            if table not in tables:
+                continue
+            for col in inspector.get_columns(table):
+                length = columns.get(col["name"])
+                if length and (getattr(col["type"], "length", None) or 0) < length:
+                    conn.execute(
+                        text(f"ALTER TABLE {table} ALTER COLUMN {col['name']} TYPE VARCHAR({length})")
+                    )
+                    logger.info("Widened column %s.%s to VARCHAR(%d)", table, col["name"], length)

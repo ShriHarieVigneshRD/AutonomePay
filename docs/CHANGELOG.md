@@ -9,7 +9,7 @@ All changes on branch `refactor/restructure-and-improve` (from `457f2fb`, 2026-1
 - **Data validation:** `tests/test_benchmark_cases.py` rejects repeats, invalid actions, missing policy sources and amounts the guardrail wouldn't approve.
 - **Fixed while building the cases:** triage missed "a cheaper *payroll* plan"; the offline engine ignored the plan the customer named; downgrade wording ("the Basic plan"); the case browser's Adversarial filter missed new injection types.
 - **Renamed** two scenario types whose titles didn't match their dialogues: `NETFLIX_CONCESSION_REQUEST`, `SLACK_RENEWAL_DISCOUNT`.
-- **PostgreSQL:** `evaluation_runs.expected_action` widened from VARCHAR(40) to 255. On PostgreSQL, 33 of the 50 labels would have failed to save; SQLite doesn't enforce lengths. The upgrade from the original schema is verified on PostgreSQL, and a test now checks case values against column lengths.
+- **PostgreSQL:** `evaluation_runs.expected_action` widened from VARCHAR(40) to 255. On PostgreSQL, 33 of the 50 labels would have failed to save; SQLite doesn't enforce lengths. On startup, the migration also widens the column in databases where it was already created at 40. The upgrade from the original schema is verified on PostgreSQL, and a test now checks case values against column lengths.
 - **Token budget:** the default per-conversation budget is now 20,000 (live turns use ~1–2k tokens). `render.yaml` takes `DATABASE_URL` from a dashboard secret instead of a hard-coded SQLite path.
 - **Existing databases:** new cases use new customer/invoice ids (`…_cNN`), which are seeded automatically. Rows from the old cases stay in the database but are no longer used.
 
