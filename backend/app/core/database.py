@@ -143,6 +143,26 @@ class EvaluationRun(Base):
     batch: Mapped["EvaluationBatch"] = relationship(back_populates="runs")
 
 
+class PaymentLink(Base):
+    """Every payment link the agent issued (any mode). Sandbox links are also settled here."""
+
+    __tablename__ = "payment_links"
+
+    link_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    invoice_id: Mapped[str | None] = mapped_column(
+        String(64), ForeignKey("invoices.invoice_id"), nullable=True
+    )
+    session_id: Mapped[str | None] = mapped_column(String(80), nullable=True, index=True)
+    amount_inr: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    amount_paid_inr: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    short_url: Mapped[str] = mapped_column(String(500), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="created")
+    sandbox: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    description: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, default=utcnow)
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
 def get_db():
     db = SessionLocal()
     try:

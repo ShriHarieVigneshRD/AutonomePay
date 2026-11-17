@@ -114,7 +114,7 @@ export function SettlementSlip({ turn, scenario, fresh = false }) {
               <ArrowSquareOut className="h-4 w-4" aria-hidden />
             </ButtonLink>
             <span className="text-xs text-ink-3">
-              {payload.sandbox ? 'Sandbox link' : 'Razorpay test link'}
+              {payload.sandbox ? 'Sandbox link' : 'Razorpay link'} · via MCP
             </span>
           </div>
         ) : payload && !payload.success ? (

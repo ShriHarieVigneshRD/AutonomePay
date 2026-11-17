@@ -135,7 +135,10 @@ export function AuditRail({ turn, sending, className = '', ...rest }) {
             <>
               <p className="text-xs">
                 <span className="font-mono">{payload.tool ?? 'create_payment_link'}</span>
-                <span className="text-ink-3"> · {payload.sandbox ? 'sandbox' : 'Razorpay test mode'}</span>
+                <span className="text-ink-3">
+                  {' '}
+                  · {payload.transport ?? 'mcp'} · {payload.sandbox ? 'sandbox' : 'Razorpay'}
+                </span>
               </p>
               <p className="mt-1 text-xs text-ink-3">
                 {payload.success ? `Link created for ${inr(payload.amount_in_inr)}` : payload.error}

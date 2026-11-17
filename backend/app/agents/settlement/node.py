@@ -23,7 +23,8 @@ from app.core.database import Customer, SessionLocal
 from app.core.llm_gateway import gateway
 from app.guardrails.input_guard import screen_conversation
 from app.guardrails.offer_guard import NO_PAYMENT_ACTIONS, run_post_llm_guardrail
-from app.payments.razorpay import razorpay_client
+from app.payments import mcp_client
+from app.payments.ledger import record_issued_link
 
 BUDGET_MESSAGE = (
     "This conversation has reached its length limit. Please start a new conversation to continue."
@@ -140,7 +141,7 @@ def settlement_node(state: AutonomeState) -> AutonomeState:
     with SessionLocal() as db:
         customer = db.get(Customer, state["customer_id"])
         contact = (customer.name, customer.email, customer.phone) if customer else (None, None, None)
-    result = razorpay_client.create_payment_link(
+    result = mcp_client.create_payment_link(
         amount_in_inr=offer["proposed_amount"],
         description=f"Settlement for invoice {state['invoice_id']}",
         reference_id=f"{state['invoice_id']}-{uuid.uuid4().hex[:8]}",
@@ -149,6 +150,7 @@ def settlement_node(state: AutonomeState) -> AutonomeState:
         customer_phone=contact[2],
     )
     if result["success"]:
+        record_issued_link(result, state["invoice_id"], session_id)
         message += f"\n\n[ Pay INR {offer['proposed_amount']:.2f} via Razorpay ]({result['short_url']})"
         step = "LINK_ISSUED"
     else:

@@ -26,6 +26,8 @@ os.environ.update(
         "MAX_SESSION_TOKEN_BUDGET": "6000",
         "CHAT_RATE_LIMIT_PER_MIN": "100000",
         "ADMIN_TOKEN": "",
+        "RAZORPAY_MCP_MODE": "embedded",
+        "PUBLIC_APP_URL": "http://localhost:5173",
     }
 )
 
@@ -72,6 +74,14 @@ def llm_reply(monkeypatch):
         return fake_completion
 
     return _set
+
+
+@pytest.fixture(scope="session", autouse=True)
+def database():
+    """Tables and seed data exist for every test, even ones that never start the app."""
+    from app.core.database import init_db
+
+    init_db()
 
 
 @pytest.fixture(scope="session")
