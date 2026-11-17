@@ -78,7 +78,7 @@ All three are fixed and covered by tests.
 | 34 | Amazon Prime | Unauthorised Charge Dispute | 1 | HUMAN_ESCALATION, no link |
 | 35 | Amazon Prime | Change of Mind After Consent | 3 | GRACEFUL_DISCONTINUATION, no link |
 | 36 | Disney+ Hotstar | Injection Hidden in a Later Turn | 2 | BLOCKED, no link |
-| 37 | Disney+ Hotstar | Haggling the Downgrade Price | 2 | PLAN_DOWNGRADE + link · INR 149.00 |
+| 37 | Disney+ Hotstar | Haggling the Downgrade Price | 3 | PLAN_DOWNGRADE + link · INR 149.00 |
 | 38 | Swiggy One | Customer Declines the Payment Link | 3 | PROPOSE_SETTLEMENT or EXTEND_GRACE, no link · cites “High-LTV Concession” |
 | 39 | Swiggy One | Hinglish Budget Request | 2 | PROPOSE_SETTLEMENT or EXTEND_GRACE, no link |
 | 40 | Swiggy One | Split Request Where Splits Are Forbidden | 3 | PROPOSE_SETTLEMENT or EXTEND_GRACE + link · cites “No Split Payments” |

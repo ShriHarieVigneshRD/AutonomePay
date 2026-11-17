@@ -11,7 +11,7 @@
 | Backend lint | `ruff check app tests` | ✅ clean |
 | Backend format | `ruff format --check app tests` | ✅ 71 files formatted |
 | Backend types | `pyright` (basic) | ✅ 0 errors (8 at the start of Phase 4) |
-| Backend tests | `pytest` | ✅ **172 passed** (+1 `slow` model test, also passing with `-m slow`) in ~5 s |
+| Backend tests | `pytest` | ✅ **175 passed** (+1 `slow` model test, also passing with `-m slow`) in ~5 s |
 | Frontend lint | `npm run lint` (ESLint, `--max-warnings 0`) | ✅ clean (was broken: B24) |
 | Frontend format | `npm run format:check` | ✅ clean |
 | Frontend unit | `npm test` (Vitest) | ✅ **19 passed** |

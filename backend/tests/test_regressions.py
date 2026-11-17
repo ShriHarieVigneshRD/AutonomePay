@@ -48,6 +48,23 @@ def test_b1_text_price_cannot_override_approved_amount(client, llm_reply):
     assert any(c["id"] == "message" and c["status"] == "corrected" for c in body["guardrail_checks"])
 
 
+def test_b1_message_may_name_the_discounted_price_as_an_option(client, llm_reply):
+    # Found in a live run: a grace offer that also mentioned the discounted price was replaced by a template.
+    msg = "I can give you a few more days to pay INR 299, or you can pay INR 279 today with the renewal discount."
+    llm_reply(settlement(action="EXTEND_GRACE", amount=299.0, message=msg))
+    body = client.post("/api/chat", json=chat_body("Money is tight this month.")).json()
+    assert body["final_response"] == msg and body["guardrail_status"] == "PASSED"
+
+
+def test_b1_message_may_explain_the_split_threshold():
+    from app.agents.settlement.offer import legitimate_amounts, unapproved_amounts
+
+    msg = "Splits are only for invoices of INR 10,000 or more, so this INR 6,400 invoice is paid in full."
+    allowed = legitimate_amounts(rules("notion_saas"), 6400, {"proposed_amount": 6400})
+    assert unapproved_amounts(msg, allowed) == []
+    assert unapproved_amounts("Pay INR 3,200 now and the rest later.", allowed) == [3200.0]
+
+
 # --- B2 / B5: plan-, split- and partial-aware offer guard ------------------------------------
 
 
