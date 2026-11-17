@@ -125,3 +125,17 @@ def test_case_values_fit_their_database_columns():
     for case in CASES:
         for field, limit in limits.items():
             assert len(case[field]) <= limit, (case["scenario_id"], field, len(case[field]), limit)
+
+
+def test_settlement_prompt_states_the_rules_the_engine_and_guardrail_apply():
+    from app.agents.settlement.prompt import build_settlement_prompt
+
+    with SessionLocal() as db:
+        netflix = get_merchant_rules(db, "netflix_india")
+        notion = get_merchant_rules(db, "notion_saas")
+    prompt = build_settlement_prompt(rules=netflix, original_amount=649, intent="X", policy_context="")
+    assert "No discounts at this merchant" in prompt and "INR 0.00 off" not in prompt
+    assert "If the customer names one of these plans, offer that one" in prompt
+    assert "Instalments: not available" in prompt and "the options above are enforced" in prompt.lower()
+    split = build_settlement_prompt(rules=notion, original_amount=15000, intent="X", policy_context="")
+    assert '"MILESTONE_SPLIT"' in split and "Instalments: not available" not in split

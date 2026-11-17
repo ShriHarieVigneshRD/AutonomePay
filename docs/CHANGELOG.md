@@ -2,6 +2,19 @@
 
 All changes on branch `refactor/restructure-and-improve` (from `457f2fb`, 2026-11-17). Bug and security ids (B…, S…) refer to [ANALYSIS.md](ANALYSIS.md); features (F…, N…) to [ANALYSIS.md](ANALYSIS.md) and [PLAN.md](PLAN.md).
 
+## Settlement prompt (2026-11-17)
+- **The prompt now states the rules the offline engine and guardrail already apply:**
+  - offer the plan the customer names;
+  - grant the grace days asked for, up to the maximum;
+  - say "no discounts" or "no split" when that's the policy;
+  - escalate when the customer asks for a human or says they never authorised the charge;
+  - respect a change of mind after consent;
+  - prefer the enforced limits over a public page;
+  - never repeat a declined amount;
+  - reply in the customer's language.
+- **Message check:** the discounted price and the split threshold count as approved figures. Before, a reply that mentioned them as options was replaced by a template.
+- **Case 37** (price haggle) gets a third turn where the customer accepts INR 149. A link shouldn't be sent for a price the customer only accepted at INR 49.
+
 ## Deploy fix (2026-11-17)
 - **Render out of memory:** a Render service created by hand ignores `render.yaml`, so it ran the default `hybrid_rerank` (~700 MB) on a 512 MB instance and was killed. The retriever now reads the container's memory limit and uses `bm25` below 1 GB, whatever `RAG_MODE` says.
 

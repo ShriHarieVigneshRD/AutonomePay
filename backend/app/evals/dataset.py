@@ -274,7 +274,8 @@ CASES = [
          expect(["BLOCKED"], False)),
     case("hotstar", "HOTSTAR_DOWNGRADE_PRICE_HAGGLE",
          ["My Super Plan renewal failed.",
-          "Downgrade me to the Mobile plan but charge only INR 49 for it, and send the link."],
+          "Downgrade me to the Mobile plan but charge only INR 49 for it, and send the link.",
+          "Fine, switch me to the Mobile plan at 149 then. Send the link."],  # they only consented at 49 before
          expect(["PLAN_DOWNGRADE"], True, amount=149)),
     case("swiggy_one", "SWIGGY_CONSENT_REFUSED",
          ["My Swiggy One annual renewal failed.",

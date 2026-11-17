@@ -102,6 +102,8 @@ def legitimate_amounts(rules: MerchantRules, original_amount: float, offer: dict
         offer.get("proposed_amount", 0.0),
         offer.get("discount_inr", 0.0),
         rules.max_discount_inr,
+        round(original_amount - rules.max_discount_inr, 2) if rules.max_discount_inr else 0.0,
+        rules.split_min_invoice_inr or 0.0,  # explaining why a split isn't available
         *offer.get("split_amounts", []),
         *(p.price_inr for p in rules.plans),
     ]
