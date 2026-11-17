@@ -30,7 +30,7 @@ os.environ.update(
 import litellm  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
-from app.core import gateway as gateway_module  # noqa: E402
+from app.core import llm_gateway as gateway_module  # noqa: E402
 from app.main import app  # noqa: E402
 
 

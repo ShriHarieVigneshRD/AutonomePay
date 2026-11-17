@@ -1,12 +1,11 @@
+import contextlib
 import re
-from typing import Dict, Any, List
+from typing import Any
+
 
 def evaluate_rag_triad(
-    query: str,
-    retrieved_chunks: List[str],
-    response_text: str,
-    proposed_offer: Dict[str, Any]
-) -> Dict[str, float]:
+    query: str, retrieved_chunks: list[str], response_text: str, proposed_offer: dict[str, Any]
+) -> dict[str, float]:
     """
     RAG Triad Evaluator scoring Context Relevance, Faithfulness, and Answer Relevance (0.0 to 1.0).
     Calculates dynamic faithfulness based on ground truth alignment with retrieved merchant policy chunks.
@@ -16,10 +15,21 @@ def evaluate_rag_triad(
     resp_lower = response_text.lower()
 
     # 1. Context Relevance Score
-    intent_keywords = ["discount", "pause", "grace", "downgrade", "split", "dispute", "afford", "bank", "timeout", "cancel"]
+    intent_keywords = [
+        "discount",
+        "pause",
+        "grace",
+        "downgrade",
+        "split",
+        "dispute",
+        "afford",
+        "bank",
+        "timeout",
+        "cancel",
+    ]
     matched_q_words = [kw for kw in intent_keywords if kw in query_lower]
     matched_c_words = [kw for kw in intent_keywords if kw in combined_context]
-    
+
     if matched_q_words:
         overlap = len(set(matched_q_words).intersection(matched_c_words))
         context_rel = min(1.0, 0.70 + (0.08 * overlap))
@@ -28,15 +38,13 @@ def evaluate_rag_triad(
 
     # 2. Dynamic Faithfulness Score (Factual Grounding)
     faithfulness = 1.00
-    
+
     # Extract numeric amounts from agent response text
     raw_inr_matches = re.findall(r"INR\s*([\d,]+(?:\.\d+)?)", response_text, re.IGNORECASE)
     inr_matches = []
     for match in raw_inr_matches:
-        try:
+        with contextlib.suppress(ValueError):
             inr_matches.append(float(match.replace(",", "")))
-        except ValueError:
-            pass
 
     proposed_amt = float(proposed_offer.get("proposed_amount", 0.0))
     discount_inr = float(proposed_offer.get("discount_inr", 0.0))
@@ -46,7 +54,9 @@ def evaluate_rag_triad(
         faithfulness = 0.85
     else:
         # Penalize if discount is offered when policy context doesn't mention discounts
-        if discount_inr > 0 and not any(kw in combined_context for kw in ["discount", "concession", "waiver", "off", "reduction"]):
+        if discount_inr > 0 and not any(
+            kw in combined_context for kw in ["discount", "concession", "waiver", "off", "reduction"]
+        ):
             faithfulness -= 0.15
 
         # Penalize if grace period exceeds context limits or mentions grace when forbidden
@@ -71,10 +81,14 @@ def evaluate_rag_triad(
     faithfulness = round(max(0.72, min(1.00, faithfulness)), 3)
 
     # 3. Answer Relevance Score
-    answer_rel = 0.95 if any(kw in resp_lower for kw in ["pay", "link", "option", "grace", "discount", "confirm", "help"]) else 0.80
+    answer_rel = (
+        0.95
+        if any(kw in resp_lower for kw in ["pay", "link", "option", "grace", "discount", "confirm", "help"])
+        else 0.80
+    )
 
     return {
         "rag_context_relevance": round(context_rel, 3),
         "rag_faithfulness": faithfulness,
-        "rag_answer_relevance": round(answer_rel, 3)
+        "rag_answer_relevance": round(answer_rel, 3),
     }

@@ -38,7 +38,7 @@ def test_f3_chat_response_shape_offline(client):
     res = client.post("/api/chat", json=chat_body("Money is tight this month."))
     assert res.status_code == 200
     body = res.json()
-    assert CHAT_RESPONSE_KEYS <= body.keys()
+    assert body.keys() >= CHAT_RESPONSE_KEYS
     assert body["final_response"]
     assert body["guardrail_status"] in ALLOWED_STATUSES
     assert isinstance(body["retrieved_policy_chunks"], list) and body["retrieved_policy_chunks"]
@@ -88,7 +88,11 @@ def test_f5_grace_over_limit_is_corrected(client, llm_reply):
 
 
 def test_f6_valid_plan_downgrade_not_flagged(client, llm_reply):
-    llm_reply(settlement(action="PLAN_DOWNGRADE", amount=149.0, message="Switching you to the Mobile plan at INR 149.00."))
+    llm_reply(
+        settlement(
+            action="PLAN_DOWNGRADE", amount=149.0, message="Switching you to the Mobile plan at INR 149.00."
+        )
+    )
     body = client.post("/api/chat", json=chat_body("Yes, downgrade me to the Mobile plan.")).json()
     assert body["guardrail_status"] == "PASSED"
     assert body["proposed_offer"]["proposed_amount"] == 149.0
@@ -110,14 +114,20 @@ def test_f8_no_link_on_first_turn_without_consent(client, llm_reply):
 
 
 def test_f9_human_escalation_never_links(client, llm_reply):
-    llm_reply(settlement(action="HUMAN_ESCALATION", amount=299.0, message="Escalated to a specialist, ticket #ESC-1A2B3C."))
+    llm_reply(
+        settlement(
+            action="HUMAN_ESCALATION", amount=299.0, message="Escalated to a specialist, ticket #ESC-1A2B3C."
+        )
+    )
     body = client.post("/api/chat", json=chat_body("This charge is fraud, yes send it to someone.")).json()
     assert body["razorpay_payload"] is None
     assert "ESC-" in body["final_response"]
 
 
 def test_f10_graceful_discontinuation_never_links(client, llm_reply):
-    llm_reply(settlement(action="GRACEFUL_DISCONTINUATION", amount=299.0, message="Understood, we will not renew."))
+    llm_reply(
+        settlement(action="GRACEFUL_DISCONTINUATION", amount=299.0, message="Understood, we will not renew.")
+    )
     body = client.post("/api/chat", json=chat_body("Yes, cancel it, please proceed.")).json()
     assert body["razorpay_payload"] is None
 
@@ -137,7 +147,9 @@ def test_f13_heuristic_cancel_when_llm_returns_plain_text(client, llm_reply):
 def test_f13_heuristic_split_when_llm_returns_plain_text(client, llm_reply):
     llm_reply("plain text")
     greeting = {"role": "assistant", "content": "Hello Rohan, INR 15,000.00 failed."}
-    body = client.post("/api/chat", json=chat_body("Can we do a 50/50 split?", ids=NOTION, greeting=greeting)).json()
+    body = client.post(
+        "/api/chat", json=chat_body("Can we do a 50/50 split?", ids=NOTION, greeting=greeting)
+    ).json()
     assert "50/50" in body["final_response"]
     assert body["razorpay_payload"] is None  # not confirmed yet
 

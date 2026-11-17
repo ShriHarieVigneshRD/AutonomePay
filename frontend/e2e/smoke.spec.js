@@ -39,16 +39,29 @@ test('F28: prompt injection is intercepted', async ({ page }) => {
 });
 
 test('F25: scenario picker search selects another merchant', async ({ page }) => {
-  await page.getByRole('button', { name: /scenario|case/i }).first().click();
+  await page
+    .getByRole('button', { name: /scenario|case/i })
+    .first()
+    .click();
   await page.getByPlaceholder(/search/i).fill('Notion');
-  await page.getByText(/Notion SaaS/).filter({ hasText: /Case #02|#02/ }).first().click();
+  await page
+    .getByText(/Notion SaaS/)
+    .filter({ hasText: /Case #02|#02/ })
+    .first()
+    .click();
   await expect(page.getByText(/Hello Rohan/)).toBeVisible();
 });
 
 test('F29-F30: benchmark runs and a trace opens', async ({ page }) => {
-  await page.getByText(/batch eval matrix|benchmark/i).first().click();
+  await page
+    .getByText(/batch eval matrix|benchmark/i)
+    .first()
+    .click();
   await page.getByRole('button', { name: /run/i }).first().click();
   await expect(page.getByText('eval_case_50')).toBeVisible({ timeout: 80_000 });
-  await page.getByRole('button', { name: /view trace|trace/i }).first().click();
+  await page
+    .getByRole('button', { name: /view trace|trace/i })
+    .first()
+    .click();
   await expect(page.getByText(/turn #?1/i).first()).toBeVisible();
 });

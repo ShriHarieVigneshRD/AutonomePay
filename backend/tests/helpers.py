@@ -26,12 +26,20 @@ def chat_body(*user_turns, ids=HOTSTAR, greeting=GREETING):
     return {**ids, "messages": messages}
 
 
-def settlement(action="PROPOSE_SETTLEMENT", amount=279.0, message="Your net amount is INR 279.00.", link=True, **offer):
+def settlement(
+    action="PROPOSE_SETTLEMENT", amount=279.0, message="Your net amount is INR 279.00.", link=True, **offer
+):
     """An LLM JSON reply in the shape the settlement prompt asks for."""
     return {
         "action": action,
         "reasoning": "test",
         "should_generate_link": link,
-        "offer": {"proposed_amount": amount, "discount_inr": 20.0, "grace_days": 0, "split_amounts": [], **offer},
+        "offer": {
+            "proposed_amount": amount,
+            "discount_inr": 20.0,
+            "grace_days": 0,
+            "split_amounts": [],
+            **offer,
+        },
         "message": message,
     }

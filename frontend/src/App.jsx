@@ -1,14 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { useState, useEffect } from 'react';
 import { ShieldCheck, ChatTeardropText, ChartBar } from '@phosphor-icons/react';
 
-import ScenarioSelector from './components/ScenarioSelector';
-import ContextCard from './components/ContextCard';
-import ChatTab from './components/ChatTab';
-import LiveTraceInspector from './components/LiveTraceInspector';
-import BatchEvalTab from './components/BatchEvalTab';
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+import { api } from './lib/api';
+import ScenarioPicker from './features/sandbox/ScenarioPicker';
+import CaseFile from './features/sandbox/CaseFile';
+import ChatPanel from './features/sandbox/ChatPanel';
+import AuditRail from './features/sandbox/AuditRail';
+import BenchmarkView from './features/benchmark/BenchmarkView';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('chat'); // 'chat' | 'evals'
@@ -21,23 +19,22 @@ export default function App() {
 
   // Fetch preset scenarios on mount
   useEffect(() => {
-    axios.get(`${API_BASE}/api/scenarios`)
-      .then((res) => {
-        setScenarios(res.data);
-        if (res.data.length > 0) {
-          selectScenario(res.data[0]);
+    api
+      .scenarios()
+      .then((list) => {
+        setScenarios(list);
+        if (list.length > 0) {
+          selectScenario(list[0]);
         }
       })
       .catch((err) => {
-        console.error("Failed to load scenarios:", err);
+        console.error('Failed to load scenarios:', err);
       });
   }, []);
 
   const selectScenario = (sc) => {
     setActiveScenario(sc);
-    setMessages([
-      { role: 'assistant', content: sc.initial_message }
-    ]);
+    setMessages([{ role: 'assistant', content: sc.initial_message }]);
     setTraceData(null);
   };
 
@@ -49,24 +46,23 @@ export default function App() {
     setLoading(true);
 
     try {
-      const res = await axios.post(`${API_BASE}/api/chat`, {
+      const data = await api.chat({
         merchant_id: activeScenario.merchant_id,
         customer_id: activeScenario.customer_id,
         invoice_id: activeScenario.invoice_id,
-        messages: newMsgs
+        messages: newMsgs,
       });
 
-      const data = res.data;
       setMessages([...newMsgs, { role: 'assistant', content: data.final_response }]);
       setTraceData(data);
     } catch (e) {
-      console.error("Chat turn failed", e);
+      console.error('Chat turn failed', e);
       setMessages([
         ...newMsgs,
         {
           role: 'assistant',
-          content: "We encountered an issue processing your request. Please try again."
-        }
+          content: 'We encountered an issue processing your request. Please try again.',
+        },
       ]);
     } finally {
       setLoading(false);
@@ -75,7 +71,6 @@ export default function App() {
 
   return (
     <div className="h-screen bg-[#090d16] text-slate-100 flex flex-col overflow-hidden selection:bg-emerald-500/30 selection:text-emerald-300">
-      
       {/* Top Header Navbar */}
       <header className="shrink-0 bg-[#090d16]/90 backdrop-blur-md border-b border-slate-800/80 px-6 py-2.5 flex items-center justify-between z-40">
         <div className="flex items-center space-x-3">
@@ -89,7 +84,9 @@ export default function App() {
                 Razorpay AI Buildathon
               </span>
             </h1>
-            <p className="text-[10px] text-slate-400 font-mono">Autonomous Financial Concierge & Settlement Sentinel</p>
+            <p className="text-[10px] text-slate-400 font-mono">
+              Autonomous Financial Concierge & Settlement Sentinel
+            </p>
           </div>
         </div>
 
@@ -121,7 +118,7 @@ export default function App() {
 
         {/* Header Scenario Selector */}
         {activeTab === 'chat' && (
-          <ScenarioSelector
+          <ScenarioPicker
             scenarios={scenarios}
             activeScenario={activeScenario}
             onSelectScenario={selectScenario}
@@ -135,12 +132,12 @@ export default function App() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch h-full flex-1 overflow-hidden">
             {/* Left Column: Context Card (3 cols) */}
             <div className="lg:col-span-3 h-full overflow-hidden flex flex-col">
-              <ContextCard scenario={activeScenario} />
+              <CaseFile scenario={activeScenario} />
             </div>
 
             {/* Center Column: Interactive Chat (6 cols) */}
             <div className="lg:col-span-6 h-full overflow-hidden flex flex-col">
-              <ChatTab
+              <ChatPanel
                 messages={messages}
                 onSendMessage={handleSendMessage}
                 loading={loading}
@@ -150,12 +147,12 @@ export default function App() {
 
             {/* Right Column: Live Trace Inspector (3 cols) */}
             <div className="lg:col-span-3 h-full overflow-hidden flex flex-col">
-              <LiveTraceInspector traceData={traceData} scenario={activeScenario} />
+              <AuditRail traceData={traceData} scenario={activeScenario} />
             </div>
           </div>
         ) : (
           <div className="h-full overflow-y-auto">
-            <BatchEvalTab />
+            <BenchmarkView />
           </div>
         )}
       </main>

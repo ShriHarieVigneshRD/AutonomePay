@@ -4,9 +4,9 @@ import litellm
 import pytest
 
 from app.core.database import Customer, Invoice, Merchant, SessionLocal
-from app.core.gateway import gateway
-from app.guardrails.post_guardrails import run_post_llm_guardrail
-from app.guardrails.pre_guardrails import run_pre_llm_guardrail
+from app.core.llm_gateway import gateway
+from app.guardrails.input_guard import run_pre_llm_guardrail
+from app.guardrails.offer_guard import run_post_llm_guardrail
 from app.rag.retriever import retriever
 
 
@@ -50,7 +50,9 @@ def test_f5_offer_guard_caps_discount_and_grace():
 
 
 def test_f5_offer_guard_repairs_split_sum():
-    r = run_post_llm_guardrail({"proposed_amount": 299, "original_amount": 299, "split_amounts": [100, 100]}, 20, 3)
+    r = run_post_llm_guardrail(
+        {"proposed_amount": 299, "original_amount": 299, "split_amounts": [100, 100]}, 20, 3
+    )
     assert not r["passed"]
     assert sum(r["corrected_offer"]["split_amounts"]) == pytest.approx(299)
 
