@@ -1,293 +1,190 @@
-import { useState, useRef, useEffect } from 'react';
-import {
-  Sparkle,
-  CaretDown,
-  MagnifyingGlass,
-  Funnel,
-  Storefront,
-  Tag,
-  Buildings,
-  ListNumbers,
-  Check,
-  X,
-} from '@phosphor-icons/react';
+import { useState } from 'react';
+import { CaretDown, Check, MagnifyingGlass, X } from '@phosphor-icons/react';
+import { Button } from '../../components/ui/Button';
+import { Dialog } from '../../components/ui/Dialog';
+import { Segmented } from '../../components/ui/Segmented';
+import { inr } from '../../lib/format';
 
-export default function ScenarioPicker({ scenarios = [], activeScenario, onSelectScenario }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [search, setSearch] = useState('');
-  const [groupBy, setGroupBy] = useState('merchant'); // 'merchant' | 'intent' | 'sector' | 'flat'
-  const [filterType, setFilterType] = useState('all'); // 'all' | 'multi' | 'single' | 'adversarial'
-  const dropdownRef = useRef(null);
+const GROUPS = [
+  { value: 'merchant', label: 'Merchant' },
+  { value: 'intent', label: 'Intent' },
+  { value: 'sector', label: 'Sector' },
+  { value: 'flat', label: 'All' },
+];
+const FILTERS = [
+  { value: 'all', label: 'All' },
+  { value: 'multi', label: 'Multi-turn' },
+  { value: 'single', label: 'Single-turn' },
+  { value: 'adversarial', label: 'Adversarial' },
+];
 
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+const caseNumber = (id) => id.replace('eval_case_', '#');
 
-  // Filter scenarios
-  const filteredScenarios = scenarios.filter((sc) => {
-    const query = search.toLowerCase().trim();
-    const matchesSearch =
-      !query ||
-      sc.title.toLowerCase().includes(query) ||
-      sc.id.toLowerCase().includes(query) ||
-      sc.merchant_name.toLowerCase().includes(query) ||
-      sc.customer_name.toLowerCase().includes(query) ||
-      sc.category.toLowerCase().includes(query) ||
-      sc.scenario_type_title?.toLowerCase().includes(query);
-
-    if (!matchesSearch) return false;
-
-    if (filterType === 'multi') return sc.is_multi_turn;
-    if (filterType === 'single') return !sc.is_multi_turn;
-    if (filterType === 'adversarial') return sc.scenario_type === 'ADVERSARIAL_INJECTION_ATTEMPT';
+export function filterScenarios(scenarios, query, filter) {
+  const q = query.toLowerCase().trim();
+  return scenarios.filter((sc) => {
+    const haystack = [
+      sc.title,
+      sc.id,
+      sc.merchant_name,
+      sc.customer_name,
+      sc.category,
+      sc.scenario_type_title,
+    ]
+      .join(' ')
+      .toLowerCase();
+    if (q && !haystack.includes(q)) return false;
+    if (filter === 'multi') return sc.is_multi_turn;
+    if (filter === 'single') return !sc.is_multi_turn;
+    if (filter === 'adversarial') return sc.scenario_type === 'ADVERSARIAL_INJECTION_ATTEMPT';
     return true;
   });
+}
 
-  // Group scenarios
-  const groupScenarios = () => {
-    if (groupBy === 'flat') {
-      return { 'All 50 Benchmark Cases': filteredScenarios };
-    }
+export function groupScenarios(scenarios, groupBy) {
+  if (groupBy === 'flat') return [['All cases', scenarios]];
+  const key = { merchant: 'merchant_name', intent: 'scenario_type_title', sector: 'category' }[groupBy];
+  const groups = new Map();
+  for (const sc of scenarios) {
+    const name = sc[key] || 'Other';
+    groups.set(name, [...(groups.get(name) ?? []), sc]);
+  }
+  return [...groups.entries()];
+}
 
-    const groups = {};
-    filteredScenarios.forEach((sc) => {
-      let key = 'Other';
-      if (groupBy === 'merchant') key = sc.merchant_name || sc.merchant_id;
-      else if (groupBy === 'intent') key = sc.scenario_type_title || sc.scenario_type;
-      else if (groupBy === 'sector') key = sc.category || 'General';
+export function ScenarioPicker({ scenarios, active, onSelect, disabled }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [groupBy, setGroupBy] = useState('merchant');
+  const [filter, setFilter] = useState('all');
+  const groups = groupScenarios(filterScenarios(scenarios, query, filter), groupBy);
 
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(sc);
-    });
-
-    return groups;
+  const choose = (scenario) => {
+    onSelect(scenario);
+    setOpen(false);
   };
 
-  const grouped = groupScenarios();
-
   return (
-    <div className="relative inline-block text-left" ref={dropdownRef}>
-      {/* Trigger Button Pill */}
+    <>
       <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center space-x-2.5 bg-slate-900/90 hover:bg-slate-850 border border-slate-700/80 hover:border-emerald-500/50 rounded-xl px-3.5 py-2 text-xs transition-all shadow-md cursor-pointer group"
+        type="button"
+        onClick={() => setOpen(true)}
+        disabled={disabled}
+        aria-haspopup="dialog"
+        className="group flex h-10 min-w-0 max-w-full items-center gap-2 rounded-control border border-rule/15 bg-sheet px-3 text-left text-sm transition-colors hover:border-accent/40 disabled:opacity-60"
       >
-        <Sparkle
-          className="w-4 h-4 text-emerald-400 animate-pulse group-hover:scale-110 transition-transform"
-          weight="fill"
-        />
-        <span className="text-slate-400 font-medium hidden sm:inline">Scenario:</span>
-        <span className="text-slate-100 font-bold max-w-[200px] md:max-w-[260px] truncate">
-          {activeScenario ? activeScenario.title : 'Select Scenario (50 Cases)'}
+        <span className="num shrink-0 font-mono text-xs text-ink-3">
+          {active ? caseNumber(active.id) : '—'}
         </span>
-        <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">
-          50 Cases
+        <span className="min-w-0 truncate font-medium">
+          {active ? `${active.merchant_name} · ${active.scenario_type_title}` : 'Loading cases…'}
         </span>
-        <CaretDown
-          className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180 text-emerald-400' : ''}`}
-        />
+        <CaretDown className="ml-1 h-4 w-4 shrink-0 text-ink-3 group-hover:text-ink" aria-hidden />
+        <span className="sr-only">Change case</span>
       </button>
 
-      {/* Dropdown Modal Container */}
-      {isOpen && (
-        <div className="absolute right-0 mt-2 w-[340px] sm:w-[460px] md:w-[560px] bg-slate-950/95 backdrop-blur-xl border border-slate-800 rounded-2xl shadow-2xl z-50 overflow-hidden flex flex-col max-h-[580px] animate-in fade-in slide-in-from-top-2 duration-200">
-          {/* Header & Search */}
-          <div className="p-4 bg-slate-900/90 border-b border-slate-800 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Funnel className="w-4 h-4 text-emerald-400" />
-                <h4 className="text-xs font-bold text-slate-100 uppercase tracking-wider">
-                  Benchmark Test Suite (50 Scenarios)
-                </h4>
-              </div>
-              <button
-                onClick={() => setIsOpen(false)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+      <Dialog open={open} onClose={() => setOpen(false)} labelledBy="case-browser-title" className="flex-col">
+        <div className="flex max-h-[min(720px,100dvh)] flex-col max-sm:h-dvh">
+          <div className="space-y-3 border-b border-rule/10 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <h2 id="case-browser-title" className="text-base font-semibold tracking-tight">
+                Choose a case{' '}
+                <span className="font-normal text-ink-3">· {scenarios.length} benchmark scenarios</span>
+              </h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setOpen(false)}
+                aria-label="Close case browser"
               >
-                <X className="w-4 h-4" />
-              </button>
+                <X className="h-4 w-4" aria-hidden />
+              </Button>
             </div>
-
-            {/* Search Input */}
-            <div className="relative">
-              <MagnifyingGlass className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search 50 cases by merchant, customer, case #, or intent..."
-                className="w-full bg-slate-900 text-slate-100 placeholder-slate-500 text-xs pl-9 pr-4 py-2 rounded-xl border border-slate-800 focus:outline-none focus:border-emerald-500/60 font-sans"
+            <label className="relative block">
+              <span className="sr-only">Search cases</span>
+              <MagnifyingGlass
+                className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-4"
+                aria-hidden
               />
-            </div>
-
-            {/* Grouping Toggle Controls */}
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="text-slate-400 font-medium">Group By:</span>
-              <div className="flex items-center space-x-1 bg-slate-950 p-1 rounded-lg border border-slate-800">
-                <button
-                  onClick={() => setGroupBy('merchant')}
-                  className={`flex items-center space-x-1 px-2.5 py-1 rounded-md transition-all cursor-pointer ${
-                    groupBy === 'merchant'
-                      ? 'bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  <Storefront className="w-3.5 h-3.5" />
-                  <span>Merchant</span>
-                </button>
-                <button
-                  onClick={() => setGroupBy('intent')}
-                  className={`flex items-center space-x-1 px-2.5 py-1 rounded-md transition-all cursor-pointer ${
-                    groupBy === 'intent'
-                      ? 'bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  <Tag className="w-3.5 h-3.5" />
-                  <span>Intent</span>
-                </button>
-                <button
-                  onClick={() => setGroupBy('sector')}
-                  className={`flex items-center space-x-1 px-2.5 py-1 rounded-md transition-all cursor-pointer ${
-                    groupBy === 'sector'
-                      ? 'bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  <Buildings className="w-3.5 h-3.5" />
-                  <span>Sector</span>
-                </button>
-                <button
-                  onClick={() => setGroupBy('flat')}
-                  className={`flex items-center space-x-1 px-2.5 py-1 rounded-md transition-all cursor-pointer ${
-                    groupBy === 'flat'
-                      ? 'bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  <ListNumbers className="w-3.5 h-3.5" />
-                  <span>Flat</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Quick Filter Badges */}
-            <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 text-[10px] font-mono">
-              <button
-                onClick={() => setFilterType('all')}
-                className={`px-2.5 py-1 rounded-full border transition-all ${
-                  filterType === 'all'
-                    ? 'bg-slate-800 text-slate-100 border-slate-600 font-bold'
-                    : 'bg-slate-900/60 text-slate-400 border-slate-800 hover:text-slate-200'
-                }`}
-              >
-                All ({scenarios.length})
-              </button>
-              <button
-                onClick={() => setFilterType('multi')}
-                className={`px-2.5 py-1 rounded-full border transition-all ${
-                  filterType === 'multi'
-                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-bold'
-                    : 'bg-slate-900/60 text-slate-400 border-slate-800 hover:text-slate-200'
-                }`}
-              >
-                Multi-Turn (80%)
-              </button>
-              <button
-                onClick={() => setFilterType('single')}
-                className={`px-2.5 py-1 rounded-full border transition-all ${
-                  filterType === 'single'
-                    ? 'bg-blue-500/20 text-blue-300 border-blue-500/40 font-bold'
-                    : 'bg-slate-900/60 text-slate-400 border-slate-800 hover:text-slate-200'
-                }`}
-              >
-                Single-Turn (20%)
-              </button>
-              <button
-                onClick={() => setFilterType('adversarial')}
-                className={`px-2.5 py-1 rounded-full border transition-all ${
-                  filterType === 'adversarial'
-                    ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 font-bold'
-                    : 'bg-slate-900/60 text-slate-400 border-slate-800 hover:text-slate-200'
-                }`}
-              >
-                Adversarial Attacks
-              </button>
+              <input
+                type="search"
+                autoFocus
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search by merchant, customer, case # or intent"
+                className="h-10 w-full rounded-control border border-rule/10 bg-well pl-9 pr-3 text-base placeholder:text-ink-4 focus:border-accent/50 md:text-sm"
+              />
+            </label>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Segmented
+                options={GROUPS}
+                value={groupBy}
+                onChange={setGroupBy}
+                label="Group cases by"
+                size="sm"
+              />
+              <Segmented
+                options={FILTERS}
+                value={filter}
+                onChange={setFilter}
+                label="Filter cases"
+                size="sm"
+              />
             </div>
           </div>
 
-          {/* Grouped Scenarios List */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-5 max-h-[380px]">
-            {Object.keys(grouped).length === 0 ? (
-              <div className="text-center py-8 text-slate-500 text-xs">
-                No scenarios match your search query &ldquo;{search}&rdquo;.
-              </div>
+          <div className="scroll-quiet min-h-0 flex-1 overflow-y-auto p-2">
+            {groups.length === 0 ? (
+              <p className="px-3 py-10 text-center text-sm text-ink-3">
+                No cases match &ldquo;{query}&rdquo;.
+              </p>
             ) : (
-              Object.entries(grouped).map(([groupTitle, caseList]) => (
-                <div key={groupTitle} className="space-y-2">
-                  <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-800/80 pb-1">
-                    <span>{groupTitle}</span>
-                    <span className="text-[10px] font-mono text-slate-500">({caseList.length} cases)</span>
-                  </div>
-                  <div className="grid grid-cols-1 gap-2">
-                    {caseList.map((sc) => {
-                      const isActive = activeScenario?.id === sc.id;
+              groups.map(([name, cases]) => (
+                <section key={name} aria-label={name} className="mb-2">
+                  <h3 className="sticky top-0 z-10 flex justify-between bg-sheet-raised px-3 py-1.5 text-xs font-medium uppercase tracking-[0.08em] text-ink-3">
+                    {name}
+                    <span className="num">{cases.length}</span>
+                  </h3>
+                  <ul>
+                    {cases.map((sc) => {
+                      const current = sc.id === active?.id;
                       return (
-                        <div
-                          key={sc.id}
-                          onClick={() => {
-                            onSelectScenario(sc);
-                            setIsOpen(false);
-                          }}
-                          className={`p-3 rounded-xl border transition-all cursor-pointer hover:scale-[1.01] active:scale-[0.99] flex items-center justify-between ${
-                            isActive
-                              ? 'bg-emerald-500/10 border-emerald-500/50 shadow-md'
-                              : 'bg-slate-900/70 hover:bg-slate-850 border-slate-800 hover:border-slate-700'
-                          }`}
-                        >
-                          <div className="space-y-1 max-w-[85%]">
-                            <div className="flex items-center space-x-2">
-                              <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 shrink-0">
-                                {sc.id.replace('eval_case_', '#')}
+                        <li key={sc.id}>
+                          <button
+                            type="button"
+                            onClick={() => choose(sc)}
+                            aria-current={current ? 'true' : undefined}
+                            className={`flex w-full items-center gap-3 rounded-control px-3 py-2 text-left transition-colors ${
+                              current ? 'bg-accent/10' : 'hover:bg-well'
+                            }`}
+                          >
+                            <span className="num w-9 shrink-0 font-mono text-xs text-ink-3">
+                              {caseNumber(sc.id)}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-sm font-medium">
+                                {sc.merchant_name} · {sc.scenario_type_title}
                               </span>
-                              <span className="text-xs font-bold text-slate-100 truncate">{sc.title}</span>
-                            </div>
-                            <div className="flex items-center space-x-3 text-[11px] text-slate-400 font-sans">
-                              <span>
-                                Customer: <strong className="text-slate-300">{sc.customer_name}</strong>
+                              <span className="block truncate text-xs text-ink-3">
+                                {sc.customer_name} · {sc.plan_name} ·{' '}
+                                {sc.is_multi_turn ? 'multi-turn' : 'single-turn'}
                               </span>
-                              <span>•</span>
-                              <span>
-                                Plan: <strong className="text-amber-300">{sc.plan_name}</strong>
-                              </span>
-                              <span>•</span>
-                              <span className="font-mono text-emerald-400 font-semibold">
-                                INR {sc.original_amount?.toFixed(2)}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center space-x-2">
-                            {isActive && (
-                              <Check className="w-5 h-5 text-emerald-400 shrink-0" weight="bold" />
+                            </span>
+                            <span className="num shrink-0 text-xs text-ink-2">{inr(sc.original_amount)}</span>
+                            {current && (
+                              <Check className="h-4 w-4 shrink-0 text-accent" weight="bold" aria-hidden />
                             )}
-                          </div>
-                        </div>
+                          </button>
+                        </li>
                       );
                     })}
-                  </div>
-                </div>
+                  </ul>
+                </section>
               ))
             )}
           </div>
         </div>
-      )}
-    </div>
+      </Dialog>
+    </>
   );
 }

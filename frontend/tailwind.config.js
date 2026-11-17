@@ -1,36 +1,63 @@
 /** @type {import('tailwindcss').Config} */
+const token = (name) => `rgb(var(--${name}) / <alpha-value>)`;
+
 export default {
-  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+  content: ['./index.html', './src/**/*.{js,jsx}'],
   darkMode: 'class',
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Geist', 'Satoshi', 'Inter', 'sans-serif'],
-        mono: ['Geist Mono', 'JetBrains Mono', 'monospace'],
+        sans: ['Geist', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        mono: ['"Geist Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+      },
+      // Type scale: ratio 1.25 from a 14px body.
+      fontSize: {
+        xs: ['12px', '16px'],
+        sm: ['14px', '20px'],
+        base: ['16px', '24px'],
+        lg: ['18px', '26px'],
+        xl: ['22px', '28px'],
+        '2xl': ['28px', '34px'],
+        '3xl': ['36px', '40px'],
+        hero: ['52px', '56px'],
       },
       colors: {
-        brand: {
-          50: '#ecfdf5',
-          100: '#d1fae5',
-          500: '#10b981',
-          600: '#059669',
-          700: '#047857',
+        paper: token('paper'),
+        sheet: { DEFAULT: token('sheet'), raised: token('sheet-raised') },
+        well: token('well'),
+        rule: token('rule'),
+        ink: {
+          DEFAULT: token('ink'),
+          2: token('ink-2'),
+          3: token('ink-3'),
+          4: token('ink-4'),
         },
-        surface: {
-          dark: '#090d16',
-          card: '#111726',
-          border: '#1e293b',
+        accent: { DEFAULT: token('accent'), on: token('on-accent') },
+        settled: token('settled'),
+        caution: { DEFAULT: token('caution'), ink: token('caution-ink') },
+        void: token('void'),
+      },
+      borderRadius: {
+        control: '6px',
+        panel: '10px',
+        dialog: '14px',
+      },
+      transitionTimingFunction: {
+        out: 'cubic-bezier(0.23, 1, 0.32, 1)',
+      },
+      keyframes: {
+        stamp: {
+          from: { opacity: '0', transform: 'scale(0.96)' },
+          to: { opacity: '1', transform: 'scale(1)' },
+        },
+        shimmer: {
+          from: { backgroundPosition: '200% 0' },
+          to: { backgroundPosition: '-200% 0' },
         },
       },
       animation: {
-        'pulse-subtle': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-        shimmer: 'shimmer 2s linear infinite',
-      },
-      keyframes: {
-        shimmer: {
-          '0%': { backgroundPosition: '-200% 0' },
-          '100%': { backgroundPosition: '200% 0' },
-        },
+        stamp: 'stamp 180ms cubic-bezier(0.23, 1, 0.32, 1) both',
+        shimmer: 'shimmer 1.6s linear infinite',
       },
     },
   },

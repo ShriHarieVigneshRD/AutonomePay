@@ -6,6 +6,7 @@ const greeting = (scenario) => (scenario ? [{ role: 'assistant', content: scenar
 /**
  * One negotiation with the agent for the selected scenario.
  * A failed send is reported in `failed` and is never added to the history sent to the backend.
+ * Agent replies carry the full turn result in `meta` (offer, guardrails, payment link); it is not sent back.
  */
 export function useConversation(scenario) {
   const [scenarioId, setScenarioId] = useState(scenario?.id);
@@ -48,10 +49,10 @@ export function useConversation(scenario) {
         customer_id: scenario.customer_id,
         invoice_id: scenario.invoice_id,
         session_id: session,
-        messages: history,
+        messages: history.map(({ role, content }) => ({ role, content })),
       });
       if (activeSession.current !== session) return; // user moved on to another conversation
-      setMessages([...history, { role: 'assistant', content: data.final_response }]);
+      setMessages([...history, { role: 'assistant', content: data.final_response, meta: data }]);
       setTrace(data);
     } catch (error) {
       if (activeSession.current !== session) return;

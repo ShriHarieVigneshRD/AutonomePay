@@ -1,196 +1,210 @@
-import { useState, useRef, useEffect } from 'react';
-import { PaperPlaneRight, Robot, User, ArrowSquareOut, CheckCircle } from '@phosphor-icons/react';
+import { useEffect, useRef, useState } from 'react';
+import { ArrowClockwise, Handshake, PaperPlaneRight, Prohibit, UserCircleCheck } from '@phosphor-icons/react';
+import { Button } from '../../components/ui/Button';
+import { Panel } from '../../components/ui/Panel';
+import { Stamp } from '../../components/ui/Stamp';
+import { SettlementSlip } from './SettlementSlip';
 
-export default function ChatPanel({ messages, onSendMessage, loading, failed, onRetry, activeScenario }) {
-  const [input, setInput] = useState('');
-  const chatEndRef = useRef(null);
+const PAY_LINE = /\n*\[\s*Pay INR[^\]]*\]\(https?:\/\/[^)\s]+\)\s*$/;
+const MD_LINK = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
 
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, loading]);
+/** Plain text with markdown links turned into anchors (used for replies without a slip). */
+function RichText({ text }) {
+  const parts = [];
+  let last = 0;
+  for (const match of text.matchAll(MD_LINK)) {
+    if (match.index > last) parts.push(text.slice(last, match.index));
+    parts.push(
+      <a
+        key={match.index}
+        href={match[2]}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="font-medium text-accent underline"
+      >
+        {match[1].trim()}
+      </a>,
+    );
+    last = match.index + match[0].length;
+  }
+  parts.push(text.slice(last));
+  return <p className="whitespace-pre-wrap">{parts}</p>;
+}
 
-  // B23: one static hint; rotating placeholders were distracting and unreadable to screen readers.
-  const firstName = activeScenario?.customer_name?.split(' ')[0] || 'the customer';
-  const placeholder = `Reply as ${firstName}…`;
+function suggestions(scenario) {
+  if (!scenario) return [];
+  const policy = scenario.policy ?? {};
+  const list = ['Money is tight this month. What can you do?'];
+  if (policy.plans?.some((p) => p.price_inr < scenario.original_amount))
+    list.push('Can I move to a cheaper plan?');
+  if (policy.split_schedule_pct) list.push('Can we split this into instalments?');
+  if (policy.partial_settlement_pct) list.push('Some items arrived damaged. Can I pay the undisputed part?');
+  list.push('I want to cancel instead.');
+  return list.slice(0, 4);
+}
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!input.trim() || loading) return;
-    onSendMessage(input.trim());
-    setInput('');
-  };
+const NOTES = {
+  HUMAN_ESCALATION: [UserCircleCheck, 'Escalated to a human specialist · no payment requested'],
+  GRACEFUL_DISCONTINUATION: [Handshake, 'Cancellation respected · no payment requested'],
+  NONE: [Prohibit, 'Conversation limit reached'],
+};
 
-  const renderInlineFormattedText = (textStr) => {
-    let cleaned = textStr.replace(/^\s*#{1,6}\s+/gm, '');
-    const boldRegex = /\*\*([^*]+)\*\*/g;
-    const elements = [];
-    let lastIdx = 0;
-    let bMatch;
-
-    while ((bMatch = boldRegex.exec(cleaned)) !== null) {
-      if (bMatch.index > lastIdx) {
-        elements.push(cleaned.substring(lastIdx, bMatch.index));
-      }
-      elements.push(
-        <strong key={bMatch.index} className="font-semibold text-emerald-200">
-          {bMatch[1]}
-        </strong>,
-      );
-      lastIdx = boldRegex.lastIndex;
-    }
-    if (lastIdx < cleaned.length) {
-      elements.push(cleaned.substring(lastIdx));
-    }
-    return elements;
-  };
-
-  const renderMessageContent = (content) => {
-    const linkRegex = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
-    const parts = [];
-    let lastIndex = 0;
-    let match;
-
-    while ((match = linkRegex.exec(content)) !== null) {
-      if (match.index > lastIndex) {
-        parts.push(content.substring(lastIndex, match.index));
-      }
-      const label = match[1];
-      const url = match[2];
-      parts.push(
-        <div key={match.index} className="my-2.5">
-          <a
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center space-x-2 glass-pill px-4 py-2.5 rounded-xl font-bold text-emerald-300 hover:text-white transition-all transform active:scale-95 shadow-lg border border-emerald-500/40"
-          >
-            <CheckCircle className="w-5 h-5 text-emerald-400" weight="fill" />
-            <span>{label}</span>
-            <ArrowSquareOut className="w-4 h-4 text-emerald-300 ml-1" />
-          </a>
-        </div>,
-      );
-      lastIndex = linkRegex.lastIndex;
-    }
-
-    if (lastIndex < content.length) {
-      parts.push(content.substring(lastIndex));
-    }
-
+function TurnNote({ turn }) {
+  if (turn.action === 'BLOCKED') {
     return (
-      <div className="whitespace-pre-wrap leading-relaxed space-y-1">
-        {parts.map((p, idx) =>
-          typeof p === 'string' ? <span key={idx}>{renderInlineFormattedText(p)}</span> : p,
-        )}
+      <div className="mt-2 flex items-center gap-2 text-xs text-ink-3">
+        <Stamp verdict="blocked" animate />
+        <span>Stopped before the LLM was called.</span>
       </div>
     );
+  }
+  const note = NOTES[turn.action];
+  if (!note) return null;
+  const [Icon, text] = note;
+  return (
+    <p className="mt-2 flex items-center gap-1.5 text-xs text-ink-3">
+      <Icon className="h-4 w-4" aria-hidden />
+      {text}
+    </p>
+  );
+}
+
+export function ChatPanel({ scenario, conversation, className = '', ...rest }) {
+  const { messages, sending, failed, send, retry, reset } = conversation;
+  const [draft, setDraft] = useState('');
+  const endRef = useRef(null);
+  const lastMeta = messages.findLast((m) => m.meta)?.meta;
+  const firstName = scenario?.customer_name?.split(' ')[0] ?? 'the customer';
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [messages.length, sending, failed]);
+
+  const submit = (event) => {
+    event.preventDefault();
+    if (!draft.trim() || sending) return;
+    send(draft);
+    setDraft('');
   };
 
   return (
-    <div className="glass-panel rounded-2xl flex flex-col h-full border border-slate-800/80 overflow-hidden">
-      {/* Chat Header */}
-      <div className="px-5 py-4 bg-slate-950/60 border-b border-slate-800/80 flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shadow-sm">
-            <Robot className="w-5 h-5" weight="bold" />
-          </div>
-          <div>
-            <div className="flex items-center space-x-2">
-              <h3 className="text-sm font-bold text-slate-100">AutonomePay Sentinel</h3>
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-            </div>
-            <p className="text-[11px] text-slate-400 font-mono">Bound multi-agent revenue concierge</p>
-          </div>
-        </div>
-        <span className="text-xs text-slate-400 font-mono bg-slate-900 px-3 py-1 rounded-full border border-slate-800">
-          Session Active
+    <Panel
+      className={className}
+      title={
+        <span className="flex items-baseline gap-1.5">
+          Conversation
+          <span className="truncate font-normal text-ink-3">with {scenario?.customer_name ?? '…'}</span>
         </span>
-      </div>
-
-      {/* Messages Feed */}
-      <div className="flex-1 p-5 overflow-y-auto space-y-4">
-        {messages.map((msg, idx) => {
-          const isUser = msg.role === 'user';
+      }
+      aside={
+        <Button variant="ghost" size="sm" onClick={reset} disabled={!scenario || messages.length < 2}>
+          <ArrowClockwise className="h-4 w-4" aria-hidden />
+          <span className="max-sm:sr-only">New conversation</span>
+        </Button>
+      }
+      bodyClassName="flex flex-col"
+      {...rest}
+    >
+      <div
+        role="log"
+        aria-live="polite"
+        aria-label="Conversation"
+        className="scroll-quiet min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4"
+      >
+        {messages.map((message, index) => {
+          const isUser = message.role === 'user';
+          const text = message.meta ? message.content.replace(PAY_LINE, '') : message.content;
           return (
-            <div
-              key={idx}
-              className={`flex items-start space-x-3 ${isUser ? 'flex-row-reverse space-x-reverse' : ''}`}
-            >
+            <div key={index} className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
+              <span className="mb-1 text-xs text-ink-3">{isUser ? firstName : 'Concierge'}</span>
               <div
-                className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${
-                  isUser
-                    ? 'bg-slate-800 text-slate-200 border border-slate-700'
-                    : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                className={`max-w-[85%] rounded-panel px-3.5 py-2.5 text-sm leading-relaxed ${
+                  isUser ? 'bg-accent text-accent-on' : 'border border-rule/10 bg-sheet-raised text-ink'
                 }`}
               >
-                {isUser ? <User className="w-4 h-4" /> : <Robot className="w-4 h-4" />}
+                <RichText text={text} />
               </div>
-
-              <div
-                className={`max-w-[80%] rounded-2xl p-4 text-xs font-sans shadow-md ${
-                  isUser
-                    ? 'bg-emerald-600/20 text-slate-100 border border-emerald-500/30 rounded-tr-none'
-                    : 'bg-slate-900/90 text-slate-200 border border-slate-800 rounded-tl-none'
-                }`}
-              >
-                {renderMessageContent(msg.content)}
-              </div>
+              {message.meta && (
+                <>
+                  <SettlementSlip turn={message.meta} scenario={scenario} fresh={message.meta === lastMeta} />
+                  <TurnNote turn={message.meta} />
+                </>
+              )}
             </div>
           );
         })}
 
-        {failed && !loading && (
+        {messages.length === 1 && !sending && (
+          <ul className="flex flex-wrap gap-2 pt-1" aria-label="Suggested replies">
+            {suggestions(scenario).map((s) => (
+              <li key={s}>
+                <button
+                  type="button"
+                  onClick={() => send(s)}
+                  className="rounded-full border border-rule/15 px-3 py-1.5 text-xs text-ink-2 transition-colors hover:border-accent/40 hover:text-ink max-md:min-h-10"
+                >
+                  {s}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {sending && (
+          <p className="flex items-center gap-2 text-xs text-ink-3" role="status">
+            <span className="inline-flex gap-1" aria-hidden>
+              {[0, 1, 2].map((i) => (
+                <span
+                  key={i}
+                  className="h-1.5 w-1.5 animate-pulse rounded-full bg-ink-4"
+                  style={{ animationDelay: `${i * 150}ms` }}
+                />
+              ))}
+            </span>
+            Checking {scenario?.merchant_name}&rsquo;s policy…
+          </p>
+        )}
+
+        {failed && !sending && (
           <div
             role="alert"
-            className="flex items-center justify-between gap-3 rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-2 text-xs text-rose-200"
+            className="flex flex-wrap items-center justify-between gap-3 rounded-panel border border-void/30 bg-void/[0.06] px-3.5 py-2.5 text-sm"
           >
-            <span>
-              Couldn&apos;t send &ldquo;{failed.text}&rdquo;: {failed.error}
+            <span className="text-ink-2">
+              Couldn&rsquo;t send &ldquo;{failed.text}&rdquo;. {failed.error}
             </span>
-            <button type="button" onClick={onRetry} className="shrink-0 font-semibold underline">
+            <Button size="sm" onClick={retry}>
               Retry
-            </button>
+            </Button>
           </div>
         )}
-
-        {loading && (
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-              <Robot className="w-4 h-4 animate-pulse" />
-            </div>
-            <div className="bg-slate-900 px-4 py-3 rounded-2xl rounded-tl-none border border-slate-800 flex items-center space-x-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce"></span>
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce [animation-delay:0.2s]"></span>
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-bounce [animation-delay:0.4s]"></span>
-            </div>
-          </div>
-        )}
-        <div ref={chatEndRef} />
+        <div ref={endRef} />
       </div>
 
-      {/* Input Form with Scenario-Aware Rotating Placeholder */}
-      <form
-        onSubmit={handleSubmit}
-        className="p-4 bg-slate-950/80 border-t border-slate-800/80 flex items-center space-x-3"
-      >
+      <form onSubmit={submit} className="flex items-center gap-2 border-t border-rule/10 p-3">
+        <label htmlFor="reply" className="sr-only">
+          Reply as {firstName}
+        </label>
         <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder={placeholder}
-          aria-label="Your reply"
-          disabled={!activeScenario}
-          className="flex-1 bg-slate-900 text-slate-100 placeholder-slate-500 text-xs px-4 py-3 rounded-xl border border-slate-800 focus:outline-none focus:border-emerald-500/60 font-sans transition-all"
+          id="reply"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          disabled={!scenario}
+          maxLength={4000}
+          autoComplete="off"
+          placeholder={`Reply as ${firstName}…`}
+          className="h-10 min-w-0 flex-1 rounded-control border border-rule/10 bg-well px-3 text-base text-ink placeholder:text-ink-4 focus:border-accent/50 md:text-sm"
         />
-        <button
+        <Button
           type="submit"
-          disabled={loading || !activeScenario || !input.trim()}
-          className="bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 text-slate-950 px-4 py-3 rounded-xl font-bold text-xs flex items-center space-x-1.5 transition-all transform active:scale-95 shadow-md cursor-pointer"
+          variant="primary"
+          className="h-10"
+          disabled={!scenario || sending || !draft.trim()}
         >
-          <span>Send</span>
-          <PaperPlaneRight className="w-4 h-4" weight="bold" />
-        </button>
+          <span className="max-sm:sr-only">Send</span>
+          <PaperPlaneRight className="h-4 w-4" weight="fill" aria-hidden />
+        </Button>
       </form>
-    </div>
+    </Panel>
   );
 }

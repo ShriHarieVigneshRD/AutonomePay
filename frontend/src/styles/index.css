@@ -2,46 +2,101 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * "Settlement desk ledger" tokens. Paper and ink neutrals (one warm hue, lightness only),
+ * one ink-blue accent, three status colours validated for colour-vision deficiency
+ * (dataviz validate_palette.js, both modes). Values are "R G B" so Tailwind can add alpha.
+ */
 @layer base {
+  :root {
+    color-scheme: light;
+    --paper: 244 242 237;
+    --sheet: 251 250 247;
+    --sheet-raised: 255 255 255;
+    --well: 236 233 227;
+    --rule: 40 32 20;
+    --ink: 28 26 23;
+    --ink-2: 74 70 63;
+    --ink-3: 111 106 97;
+    --ink-4: 154 148 138;
+    --accent: 46 75 184;
+    --on-accent: 255 255 255;
+    --settled: 31 122 77;
+    --caution: 192 128 0;
+    --caution-ink: 138 90 0;
+    --void: 163 18 42;
+  }
+
+  .dark {
+    color-scheme: dark;
+    --paper: 18 17 16;
+    --sheet: 25 24 22;
+    --sheet-raised: 32 31 28;
+    --well: 14 13 12;
+    --rule: 255 250 240;
+    --ink: 237 234 228;
+    --ink-2: 189 184 175;
+    --ink-3: 140 135 126;
+    --ink-4: 95 91 84;
+    --accent: 143 165 255;
+    --on-accent: 18 17 16;
+    --settled: 47 163 107;
+    --caution: 191 127 24;
+    --caution-ink: 191 127 24;
+    --void: 226 85 138;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
   body {
-    background-color: #090d16;
-    color: #f1f5f9;
-    font-family: 'Geist', 'Satoshi', sans-serif;
+    @apply bg-paper font-sans text-[14px] leading-normal text-ink;
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-paper;
+  }
+
+  ::selection {
+    @apply bg-accent/20;
+  }
+
+  dialog::backdrop {
+    background: rgb(var(--ink) / 0.35);
   }
 }
 
-/* Custom Scrollbars */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+@layer components {
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Thin, quiet scrollbars that follow the theme. */
+  .scroll-quiet {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--rule) / 0.18) transparent;
+  }
 }
 
-::-webkit-scrollbar-track {
-  background: #0d1322;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #1e293b;
-  border-radius: 9999px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #334155;
-}
-
-/* Glass Refraction Effect */
-.glass-panel {
-  background: rgba(17, 23, 38, 0.75);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 20px 40px -15px rgba(0, 0, 0, 0.5);
-}
-
-.glass-pill {
-  background: rgba(16, 185, 129, 0.12);
-  border: 1px solid rgba(16, 185, 129, 0.3);
-  backdrop-filter: blur(8px);
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

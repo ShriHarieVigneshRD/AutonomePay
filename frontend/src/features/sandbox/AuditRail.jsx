@@ -1,188 +1,169 @@
-import { useState } from 'react';
-import {
-  Lightning,
-  ShieldCheck,
-  FileText,
-  Code,
-  CaretDown,
-  CaretUp,
-  CheckCircle,
-  Warning,
-  Lock,
-} from '@phosphor-icons/react';
+import { CheckCircle, MinusCircle, Path, Prohibit, WarningDiamond } from '@phosphor-icons/react';
+import { Panel } from '../../components/ui/Panel';
+import { Stamp } from '../../components/ui/Stamp';
+import { EmptyState, Skeleton } from '../../components/ui/States';
+import { actionLabel, inr, verdictOf } from '../../lib/format';
 
-export default function AuditRail({ traceData }) {
-  const [openSection, setOpenSection] = useState('guardrails');
+const CHECK_ICONS = {
+  passed: [CheckCircle, 'text-settled'],
+  corrected: [WarningDiamond, 'text-caution'],
+  blocked: [Prohibit, 'text-void'],
+  skipped: [MinusCircle, 'text-ink-4'],
+};
 
-  if (!traceData) {
-    return (
-      <div className="glass-panel rounded-2xl p-5 border border-slate-800/80 text-center text-slate-500 text-xs py-12">
-        <Lightning className="w-8 h-8 text-slate-600 mx-auto mb-2 animate-pulse" />
-        No active execution trace yet. Send a message to inspect multi-agent trace nodes.
+const humanIntent = (intent) =>
+  intent
+    ? intent
+        .replace(/^STANDARD_RECOVERY_/, 'General recovery · ')
+        .replaceAll('_', ' ')
+        .toLowerCase()
+    : '—';
+
+function Step({ index, title, children, last = false }) {
+  return (
+    <li className="relative pl-8">
+      {!last && <span aria-hidden className="absolute bottom-0 left-[11px] top-7 w-px bg-rule/15" />}
+      <span
+        aria-hidden
+        className="absolute left-0 top-0.5 flex h-6 w-6 items-center justify-center rounded-full border border-rule/15 bg-sheet-raised text-xs font-medium text-ink-3"
+      >
+        {index}
+      </span>
+      <h3 className="text-sm font-medium text-ink">{title}</h3>
+      <div className="mt-1.5 pb-5 text-sm text-ink-2">{children}</div>
+    </li>
+  );
+}
+
+function PolicyPassages({ chunks }) {
+  if (!chunks?.length) return <p className="text-ink-3">No policy passages retrieved.</p>;
+  return (
+    <ul className="space-y-1.5">
+      {chunks.map((chunk, i) => {
+        const [first, ...rest] = chunk.split('\n').filter(Boolean);
+        return (
+          <li key={i}>
+            <details className="group rounded-control border border-rule/10 bg-well/60">
+              <summary className="cursor-pointer list-none px-2.5 py-1.5 text-xs text-ink-2 marker:hidden">
+                <span className="mr-1.5 text-ink-4 group-open:hidden">+</span>
+                <span className="mr-1.5 hidden text-ink-4 group-open:inline">−</span>
+                {first.replace(/^#+\s*/, '')}
+              </summary>
+              <p className="whitespace-pre-wrap border-t border-rule/10 px-2.5 py-2 text-xs leading-relaxed text-ink-3">
+                {rest.join('\n')}
+              </p>
+            </details>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/** Evidence for the latest agent turn, in the order the graph produced it. */
+export function AuditRail({ turn, sending, className = '', ...rest }) {
+  const meta =
+    turn &&
+    `${Math.round(turn.latency_ms)} ms${turn.token_spend ? ` · ${turn.token_spend.toLocaleString('en-IN')} tokens` : ''}`;
+
+  let body;
+  if (sending) {
+    body = (
+      <div className="space-y-4 p-4" aria-label="Running triage, policy retrieval and guardrails">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="flex gap-3">
+            <Skeleton className="h-6 w-6 rounded-full" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-4 w-1/3" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          </div>
+        ))}
       </div>
+    );
+  } else if (!turn) {
+    body = (
+      <EmptyState icon={Path} title="No evidence yet">
+        Send a reply and every step the agent took appears here: intent, policy passages, the offer, each
+        guardrail check and the payment tool call.
+      </EmptyState>
+    );
+  } else {
+    const offer = turn.proposed_offer ?? {};
+    const payload = turn.razorpay_payload;
+    body = (
+      <ol className="p-4">
+        <Step index={1} title="Triage">
+          <span className="capitalize">{humanIntent(turn.customer_intent)}</span>
+        </Step>
+        <Step index={2} title={`Policy retrieved (${turn.retrieved_policy_chunks?.length ?? 0})`}>
+          <PolicyPassages chunks={turn.retrieved_policy_chunks} />
+        </Step>
+        <Step index={3} title="Offer">
+          {turn.action === 'BLOCKED' ? (
+            <p className="text-ink-3">Not generated: the input guard stopped this turn.</p>
+          ) : (
+            <p>
+              {actionLabel(turn.action)}
+              {offer.proposed_amount ? (
+                <span className="num ml-1.5 font-medium text-ink">{inr(offer.proposed_amount)}</span>
+              ) : null}
+            </p>
+          )}
+        </Step>
+        <Step index={4} title="Guardrails">
+          <Stamp verdict={verdictOf(turn.guardrail_status)} className="mb-2.5" />
+          <ul className="space-y-2">
+            {(turn.guardrail_checks ?? []).map((check) => {
+              const [Icon, tone] = CHECK_ICONS[check.status] ?? CHECK_ICONS.skipped;
+              return (
+                <li key={check.id} className="flex gap-2">
+                  <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${tone}`} weight="fill" aria-hidden />
+                  <div>
+                    <p className="text-xs font-medium text-ink">
+                      {check.label} <span className="font-normal text-ink-3">· {check.status}</span>
+                    </p>
+                    <p className="text-xs text-ink-3">{check.detail}</p>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </Step>
+        <Step index={5} title="Payment tool" last>
+          {payload ? (
+            <>
+              <p className="text-xs">
+                <span className="font-mono">{payload.tool ?? 'create_payment_link'}</span>
+                <span className="text-ink-3"> · {payload.sandbox ? 'sandbox' : 'Razorpay test mode'}</span>
+              </p>
+              <p className="mt-1 text-xs text-ink-3">
+                {payload.success ? `Link created for ${inr(payload.amount_in_inr)}` : payload.error}
+              </p>
+              <details className="mt-2">
+                <summary className="cursor-pointer text-xs text-accent">Raw tool result</summary>
+                <pre className="scroll-quiet mt-1.5 overflow-x-auto rounded-control bg-well p-2.5 font-mono text-xs text-ink-2">
+                  {JSON.stringify(payload, null, 2)}
+                </pre>
+              </details>
+            </>
+          ) : (
+            <p className="text-ink-3">Not called: no customer consent to pay on this turn.</p>
+          )}
+        </Step>
+      </ol>
     );
   }
 
-  const toggle = (section) => {
-    setOpenSection(openSection === section ? null : section);
-  };
-
-  const isGuardrailPassed = traceData.guardrail_status === 'PASSED';
-  const isAdversarial = traceData.guardrail_status === 'ADVERSARIAL_INTERCEPTED';
-  const isCorrected = traceData.guardrail_status === 'POLICY_BREACH_CORRECTED';
-
   return (
-    <div className="glass-panel rounded-2xl p-5 space-y-4 border border-slate-800/80">
-      <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-        <div className="flex items-center space-x-2">
-          <Lightning className="w-5 h-5 text-emerald-400" weight="fill" />
-          <h3 className="text-sm font-bold text-slate-100">Live Execution Trace</h3>
-        </div>
-        <span className="font-mono text-xs text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
-          {traceData.latency_ms?.toFixed(0)} ms
-        </span>
-      </div>
-
-      <div className="space-y-2.5 text-xs font-sans">
-        {/* 1. Pre & Post Guardrails Accordion with Evaluated Invariant Checklist */}
-        <div className="bg-slate-900/80 rounded-xl border border-slate-800 overflow-hidden">
-          <button
-            onClick={() => toggle('guardrails')}
-            className="w-[100%] p-3 text-left font-semibold flex items-center justify-between hover:bg-slate-850 cursor-pointer"
-          >
-            <div className="flex items-center space-x-2">
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>Guardrails Status</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              {isAdversarial && (
-                <span className="px-2 py-0.5 text-[10px] font-mono bg-rose-500/20 text-rose-300 rounded border border-rose-500/30 flex items-center space-x-1">
-                  <Lock className="w-3 h-3" />
-                  <span>INTERCEPTED</span>
-                </span>
-              )}
-              {isCorrected && (
-                <span className="px-2 py-0.5 text-[10px] font-mono bg-amber-500/20 text-amber-300 rounded border border-amber-500/30 flex items-center space-x-1">
-                  <Warning className="w-3 h-3" />
-                  <span>CORRECTED</span>
-                </span>
-              )}
-              {isGuardrailPassed && (
-                <span className="px-2 py-0.5 text-[10px] font-mono bg-emerald-500/20 text-emerald-300 rounded border border-emerald-500/30 flex items-center space-x-1">
-                  <CheckCircle className="w-3 h-3" />
-                  <span>PASSED</span>
-                </span>
-              )}
-              {openSection === 'guardrails' ? <CaretUp /> : <CaretDown />}
-            </div>
-          </button>
-          {openSection === 'guardrails' && (
-            <div className="p-3.5 bg-slate-950/60 border-t border-slate-800 space-y-3 text-[11px] font-mono text-slate-300">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-400">Guardrail Engine Status:</span>
-                <span
-                  className={`font-bold px-2 py-0.5 rounded text-[10px] ${
-                    isGuardrailPassed
-                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                      : isCorrected
-                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                        : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                  }`}
-                >
-                  {traceData.guardrail_status}
-                </span>
-              </div>
-
-              {/* Violations if flagged */}
-              {traceData.guardrail_violations?.length > 0 && (
-                <div className="bg-rose-950/40 p-2.5 rounded-xl border border-rose-900/60 text-rose-300 space-y-1">
-                  <span className="font-bold block text-[10px] uppercase text-rose-400">
-                    Violations Flagged & Auto-Corrected:
-                  </span>
-                  {traceData.guardrail_violations.map((v, i) => (
-                    <p key={i} className="text-[10px] leading-tight">
-                      • {v}
-                    </p>
-                  ))}
-                </div>
-              )}
-
-              {/* B17: real per-check results from the guardrail engine */}
-              <div className="space-y-2 pt-1 border-t border-slate-800/80">
-                <span className="text-slate-400 block font-bold text-[10px] uppercase tracking-wider">
-                  Evaluated Invariant Checks:
-                </span>
-                <ul className="space-y-1.5 text-[10px]">
-                  {(traceData.guardrail_checks ?? []).map((check) => (
-                    <li
-                      key={check.id}
-                      className="flex items-start space-x-2 bg-slate-900/90 p-2 rounded-lg border border-slate-800"
-                    >
-                      {check.status === 'passed' || check.status === 'skipped' ? (
-                        <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" weight="fill" />
-                      ) : (
-                        <Warning className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" weight="fill" />
-                      )}
-                      <div>
-                        <span className="font-semibold text-slate-200 block">
-                          {check.label} ({check.status})
-                        </span>
-                        <span className="text-slate-400 text-[9px]">{check.detail}</span>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* 2. RAG Retrieved Context */}
-        <div className="bg-slate-900/80 rounded-xl border border-slate-800 overflow-hidden">
-          <button
-            onClick={() => toggle('rag')}
-            className="w-[100%] p-3 text-left font-semibold flex items-center justify-between hover:bg-slate-850 cursor-pointer"
-          >
-            <div className="flex items-center space-x-2">
-              <FileText className="w-4 h-4 text-emerald-400" />
-              <span>RAG Retrieved Chunks ({traceData.retrieved_policy_chunks?.length || 0})</span>
-            </div>
-            {openSection === 'rag' ? <CaretUp /> : <CaretDown />}
-          </button>
-          {openSection === 'rag' && (
-            <div className="p-3 bg-slate-950/60 border-t border-slate-800 space-y-2 text-[11px] font-mono text-slate-300 max-h-48 overflow-y-auto">
-              {traceData.retrieved_policy_chunks?.map((chunk, idx) => (
-                <div
-                  key={idx}
-                  className="bg-slate-900 p-2 rounded border border-slate-800 text-slate-300 leading-relaxed"
-                >
-                  <span className="text-emerald-400 block font-bold text-[10px]">Chunk #{idx + 1}</span>
-                  <p className="whitespace-pre-wrap">{chunk}</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* 3. Razorpay MCP Payload */}
-        <div className="bg-slate-900/80 rounded-xl border border-slate-800 overflow-hidden">
-          <button
-            onClick={() => toggle('mcp')}
-            className="w-[100%] p-3 text-left font-semibold flex items-center justify-between hover:bg-slate-850 cursor-pointer"
-          >
-            <div className="flex items-center space-x-2">
-              <Code className="w-4 h-4 text-emerald-400" />
-              <span>Razorpay MCP Tool Payload</span>
-            </div>
-            {openSection === 'mcp' ? <CaretUp /> : <CaretDown />}
-          </button>
-          {openSection === 'mcp' && (
-            <div className="p-3 bg-slate-950/60 border-t border-slate-800 font-mono text-[10px] text-emerald-300 overflow-x-auto">
-              <pre>{JSON.stringify(traceData.razorpay_payload, null, 2)}</pre>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+    <Panel
+      title="Audit trail"
+      aside={meta && <span className="num text-xs text-ink-3">{meta}</span>}
+      className={className}
+      bodyClassName="scroll-quiet overflow-y-auto"
+      {...rest}
+    >
+      {body}
+    </Panel>
   );
 }

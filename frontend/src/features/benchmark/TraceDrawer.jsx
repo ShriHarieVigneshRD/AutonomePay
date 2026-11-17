@@ -1,109 +1,101 @@
-import { X, ArrowSquareOut, Lightning, Sparkle, CheckCircle } from '@phosphor-icons/react';
+import { ArrowSquareOut, X } from '@phosphor-icons/react';
+import { Button } from '../../components/ui/Button';
+import { Dialog } from '../../components/ui/Dialog';
+import { Eyebrow } from '../../components/ui/Panel';
+import { Stamp } from '../../components/ui/Stamp';
+import { actionLabel, inr, pct, verdictOf } from '../../lib/format';
+import { OUTCOMES, outcomeOf } from './CaseLedger';
 
-export default function TraceDrawer({ isOpen, onClose, rowData }) {
-  if (!isOpen || !rowData) return null;
-
-  // Extract initial message if available
-  const initialGreeting =
-    rowData.initial_message ||
-    rowData.execution_trace?.[0]?.initial_message ||
-    `Hello, your subscription payment for ${rowData.scenario_type || 'service'} encountered a payment processing issue. How would you like to handle this today? I can help with payment retries, plan adjustments, or grace period extensions.`;
-
+/** Every turn of one benchmark case, as a side sheet (full screen on mobile). */
+export function TraceDrawer({ row, onClose }) {
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/80 backdrop-blur-sm transition-opacity">
-      <div className="w-[100%] max-w-xl bg-[#0d1322] border-l border-slate-800 h-[100dvh] flex flex-col shadow-2xl p-6 overflow-y-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-          <div>
-            <div className="flex items-center space-x-2">
-              <Lightning className="w-5 h-5 text-emerald-400" weight="fill" />
-              <h2 className="text-base font-bold text-slate-100">LangGraph Execution Trace</h2>
+    <Dialog open={Boolean(row)} onClose={onClose} labelledBy="trace-title" variant="sheet">
+      {row && (
+        <div className="flex h-full flex-col">
+          <header className="flex items-start justify-between gap-3 border-b border-rule/10 px-5 py-4">
+            <div>
+              <Eyebrow>{row.test_id.replace('eval_case_', 'Case #')}</Eyebrow>
+              <h2 id="trace-title" className="mt-0.5 text-base font-semibold tracking-tight">
+                {row.scenario_type.replaceAll('_', ' ').toLowerCase()}
+              </h2>
             </div>
-            <p className="text-xs text-slate-400 font-mono">Test ID: {rowData.test_id}</p>
-          </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-lg bg-slate-800 text-slate-400 hover:text-slate-100 flex items-center justify-center cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+            <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close trace">
+              <X className="h-4 w-4" aria-hidden />
+            </Button>
+          </header>
 
-        {/* LangSmith Link */}
-        {rowData.langsmith_trace_url && (
-          <a
-            href={rowData.langsmith_trace_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-between glass-pill p-3.5 rounded-xl text-emerald-300 font-bold text-xs hover:border-emerald-400/60 transition-all"
-          >
-            <div className="flex items-center space-x-2">
-              <CheckCircle className="w-5 h-5 text-emerald-400" />
-              <span>Inspect Live LangSmith Trace Run</span>
-            </div>
-            <ArrowSquareOut className="w-4 h-4" />
-          </a>
-        )}
-
-        {/* Trace Details Summary */}
-        <div className="grid grid-cols-2 gap-3 font-mono text-xs">
-          <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
-            <span className="text-slate-400 block text-[10px] uppercase">Scenario</span>
-            <span className="text-slate-100 font-bold">{rowData.scenario_type}</span>
-          </div>
-          <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
-            <span className="text-slate-400 block text-[10px] uppercase">Guardrail Status</span>
-            <span className="text-emerald-400 font-bold">{rowData.guardrail_status}</span>
-          </div>
-          <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
-            <span className="text-slate-400 block text-[10px] uppercase">RAG Faithfulness</span>
-            <span className="text-emerald-400 font-bold">{(rowData.rag_faithfulness * 100).toFixed(1)}%</span>
-          </div>
-          <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
-            <span className="text-slate-400 block text-[10px] uppercase">Recovered Amount</span>
-            <span className="text-emerald-400 font-bold">INR {rowData.recovered_inr?.toFixed(2)}</span>
-          </div>
-        </div>
-
-        {/* Initial Concierge Outreach Greeting & Call-To-Action Question */}
-        <div className="bg-emerald-950/40 rounded-xl p-4 border border-emerald-800/60 space-y-2 text-xs">
-          <div className="flex items-center space-x-2 text-emerald-400 font-mono text-[11px] font-bold uppercase tracking-wider">
-            <Sparkle className="w-4 h-4 text-emerald-400 animate-pulse" weight="fill" />
-            <span>Initial Outreach Greeting & Call-To-Action Question</span>
-          </div>
-          <p className="text-slate-200 leading-relaxed font-sans bg-slate-900/80 p-3 rounded-lg border border-slate-800 italic">
-            &ldquo;{initialGreeting}&rdquo;
-          </p>
-        </div>
-
-        {/* Multi-turn Execution Trace Log */}
-        <div className="space-y-4">
-          <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
-            Multi-Turn Step Execution Trajectory
-          </h3>
-          <div className="space-y-3">
-            {rowData.execution_trace?.map((step, idx) => (
-              <div
-                key={idx}
-                className="bg-slate-900/80 rounded-xl p-4 border border-slate-800 space-y-2 text-xs"
-              >
-                <div className="flex items-center justify-between text-slate-400 font-mono text-[10px]">
-                  <span>Turn #{step.turn}</span>
-                  <span>{step.latency_ms} ms</span>
-                </div>
-                <div className="bg-slate-950 p-2.5 rounded border border-slate-800 text-slate-300">
-                  <span className="text-emerald-400 font-bold block text-[10px]">Customer Proxy Input:</span>
-                  <p>{step.user}</p>
-                </div>
-                <div className="bg-slate-950 p-2.5 rounded border border-slate-800 text-slate-200">
-                  <span className="text-emerald-400 font-bold block text-[10px]">Agent Output:</span>
-                  <p>{step.agent}</p>
-                </div>
+          <div className="scroll-quiet min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-4">
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+              <div>
+                <dt className="text-xs text-ink-3">Outcome</dt>
+                <dd>{OUTCOMES[outcomeOf(row)].label}</dd>
               </div>
-            ))}
+              <div>
+                <dt className="text-xs text-ink-3">Final action</dt>
+                <dd>{actionLabel(row.final_action)}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-ink-3">Invoice → link</dt>
+                <dd className="num">
+                  {inr(row.invoice_inr)} → {row.recovered_inr ? inr(row.recovered_inr) : 'no link'}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-ink-3">RAG faithfulness</dt>
+                <dd className="num">{pct(row.rag_faithfulness * 100, 1)}</dd>
+              </div>
+              {row.expected_action && (
+                <div className="col-span-2">
+                  <dt className="text-xs text-ink-3">Expected</dt>
+                  <dd>{actionLabel(row.expected_action)}</dd>
+                </div>
+              )}
+            </dl>
+
+            {row.langsmith_trace_url && (
+              <a
+                href={row.langsmith_trace_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-accent underline"
+              >
+                Open in LangSmith <ArrowSquareOut className="h-4 w-4" aria-hidden />
+              </a>
+            )}
+
+            <section>
+              <Eyebrow>Opening message</Eyebrow>
+              <p className="mt-1.5 rounded-panel border border-rule/10 bg-sheet px-3.5 py-2.5 text-sm text-ink-2">
+                {row.initial_message}
+              </p>
+            </section>
+
+            <section>
+              <Eyebrow>Turns</Eyebrow>
+              <ol className="mt-1.5 space-y-3">
+                {row.execution_trace?.map((step) => (
+                  <li key={step.turn} className="rounded-panel border border-rule/10 bg-sheet p-3.5 text-sm">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-ink-3">
+                      <span>
+                        Turn {step.turn}
+                        {step.action ? ` · ${actionLabel(step.action)}` : ''}
+                      </span>
+                      <span className="flex items-center gap-2">
+                        <span className="num">{Math.round(step.latency_ms)} ms</span>
+                        <Stamp verdict={verdictOf(step.guardrail_status)} />
+                      </span>
+                    </div>
+                    <p className="mt-2.5 text-xs text-ink-3">Customer (scripted)</p>
+                    <p className="text-ink">{step.user}</p>
+                    <p className="mt-2.5 text-xs text-ink-3">Concierge</p>
+                    <p className="whitespace-pre-wrap text-ink-2">{step.agent}</p>
+                  </li>
+                ))}
+              </ol>
+            </section>
           </div>
         </div>
-      </div>
-    </div>
+      )}
+    </Dialog>
   );
 }

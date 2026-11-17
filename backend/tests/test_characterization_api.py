@@ -29,6 +29,9 @@ def test_f2_scenarios_catalogue(client):
     assert len({s["merchant_id"] for s in scenarios}) == 15
     assert any(s["scenario_type"] == "ADVERSARIAL_INJECTION_ATTEMPT" for s in scenarios)
     assert any(s["is_multi_turn"] for s in scenarios) and any(not s["is_multi_turn"] for s in scenarios)
+    hotstar_policy = scenarios[0]["policy"]
+    assert [p["price_inr"] for p in hotstar_policy["plans"]] == [149.0, 299.0, 499.0, 1499.0]
+    assert scenarios[1]["policy"]["split_schedule_pct"] == [50, 50]
     first = scenarios[0]
     assert first["merchant_id"] == "hotstar" and first["original_amount"] == 299.0
     assert "Aarav" in first["initial_message"]

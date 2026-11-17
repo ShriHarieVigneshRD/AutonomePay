@@ -36,7 +36,11 @@ describe('useConversation', () => {
       { role: 'assistant', content: 'Hi Aarav' },
       { role: 'user', content: 'Money is tight' },
     ]);
-    expect(result.current.messages.at(-1)).toEqual({ role: 'assistant', content: 'Here is INR 279.00' });
+    expect(result.current.messages.at(-1)).toMatchObject({
+      role: 'assistant',
+      content: 'Here is INR 279.00',
+    });
+    expect(result.current.messages.at(-1).meta.guardrail_status).toBe('PASSED');
     expect(result.current.trace.guardrail_status).toBe('PASSED');
   });
 
@@ -65,6 +69,7 @@ describe('useConversation', () => {
     expect(result.current.trace).toBeNull();
     await act(() => result.current.send('two'));
     expect(api.chat.mock.calls[1][0].session_id).not.toBe(firstSession);
+    expect(api.chat.mock.calls[1][0].messages.every((m) => !('meta' in m))).toBe(true);
   });
 
   it('ignores blank messages', async () => {
